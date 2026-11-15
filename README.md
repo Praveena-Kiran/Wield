@@ -18,7 +18,7 @@
 <p align="center">
   <a href="https://github.com/Praveena-Kiran/Wield/actions/workflows/build.yml"><img src="https://github.com/Praveena-Kiran/Wield/actions/workflows/build.yml/badge.svg" alt="Build status"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-7857FC" alt="Windows 10 and 11">
-  <img src="https://img.shields.io/badge/license-MIT-7857FC" alt="MIT license">
+  <img src="https://img.shields.io/badge/license-all%20rights%20reserved-7857FC" alt="All rights reserved">
 </p>
 
 <p align="center">
@@ -161,6 +161,10 @@ Python · PySide6 (Qt) · MediaPipe · OpenCV · NumPy · PyInstaller · GitHub 
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Copyright © 2026 Praveena Kiran. All rights reserved.
+
+You're welcome to read the code and to download and use Wield for free for personal use. Copying, modifying or redistributing the code needs my written permission. See [LICENSE](LICENSE) for the details.
+
+v1.0.0 and earlier were released under the MIT License.
 
 Made by [Praveena Kiran](https://github.com/Praveena-Kiran).
