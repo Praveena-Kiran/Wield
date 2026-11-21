@@ -416,6 +416,10 @@ class MainWindow(QMainWindow):
             lambda: self.open_live_workspace("Gesture Studio")
         )
 
+        self.gesture_page.open_presentation_studio.connect(
+            lambda: self.open_live_workspace("Presentation Studio")
+        )
+
         self.presentation_page.listening_requested.connect(
             self.set_presentation_listening
         )
@@ -1325,7 +1329,7 @@ class MainWindow(QMainWindow):
 
         if not phrases:
             self._voice_note = (
-                "🎤 No voice commands here yet: add them in Gesture Studio"
+                "🎤 No voice commands here yet: add them in Presentation Studio"
             )
             print("🎤 Voice is on, but this studio has no voice commands.")
             return

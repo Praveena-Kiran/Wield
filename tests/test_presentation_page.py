@@ -102,22 +102,39 @@ class PresentationPageTests(unittest.TestCase):
         self.page.refresh_bindings()
         self.assertTrue(self.page.voice_note.isHidden())
 
-    def test_gesture_studio_sees_changes_and_does_not_undo_them(self):
+    def test_more_gestures_editor_stays_in_step_with_the_rows(self):
+        self.page.show_more(True)
+        self.assertTrue(self.page.more_card.isVisibleTo(self.page))
+
+        # A choice in the rows shows in the full editor...
+        self.choose("presentation_end", "☝️ Pointing Up")
+        self.assertIn(
+            "☝️ Pointing Up",
+            self.page.more_editor.rows["presentation_end"].triggers,
+        )
+
+        # ...and an extra trigger added in the editor is saved, keeps the
+        # rows' choice, and is mentioned on the row.
+        self.page.more_editor.assign("Swipe up", "presentation_end")
+        saved = self.saved_map()
+        self.assertEqual(saved["☝️ Pointing Up"], "presentation_end")
+        self.assertEqual(saved["Swipe up"], "presentation_end")
+        self.assertIn("1 more gesture", self.page.rows["presentation_end"].hint.text())
+        self.assertTrue(self.changes)
+
+    def test_activation_gesture_is_editable_here(self):
+        self.assertIn("ACTIVATE", self.page.more_editor.rows)
+
+    def test_gesture_studio_only_points_here(self):
         from frontend.pages.gesture_page import GesturePage
 
         gesture_page = GesturePage()
         try:
-            self.choose("presentation_end", "☝️ Pointing Up")
-            gesture_page.refresh_gesture_list()
-            self.assertIn(
-                "☝️ Pointing Up",
-                gesture_page.trigger_editor.rows["presentation_end"].triggers,
-            )
-            # An edit in Gesture Studio keeps the Presentation Studio change.
-            gesture_page.trigger_editor.assign("Swipe up", "presentation_start")
-            saved = self.saved_map()
-            self.assertEqual(saved["☝️ Pointing Up"], "presentation_end")
-            self.assertEqual(saved["Swipe up"], "presentation_start")
+            self.assertFalse(hasattr(gesture_page, "trigger_editor"))
+            opened = []
+            gesture_page.open_presentation_studio.connect(lambda: opened.append(1))
+            gesture_page.open_presentation_studio.emit()
+            self.assertEqual(opened, [1])
         finally:
             gesture_page.deleteLater()
 

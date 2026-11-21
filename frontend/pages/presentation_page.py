@@ -150,7 +150,7 @@ class PresentationPage(StudioPage):
     # Gestures or phrases changed (the running camera/voice should reload).
     bindings_changed = Signal()
 
-    # "More options" link.
+    # "Record a gesture or motion" link (recording lives in Gesture Studio).
     open_gesture_studio = Signal()
 
     # Turn the camera + microphone on (True) or off (False). MainWindow
@@ -253,6 +253,7 @@ class PresentationPage(StudioPage):
         self.listening = False
 
         self.content_layout.addWidget(self._build_controls())
+        self.content_layout.addWidget(self._build_more())
         self.content_layout.addStretch(1)
         self.content_layout.addWidget(self._build_session())
 
@@ -310,9 +311,9 @@ class PresentationPage(StudioPage):
             row.phrase.textChanged.connect(lambda _t, a=action: self._on_phrase_typed(a))
             row.phrase.editingFinished.connect(lambda a=action: self._on_phrase_done(a))
 
-        more = QPushButton("More options in Gesture Studio  \u2192")
+        more = QPushButton("More gestures, motions and the activation gesture  \u2193")
         more.setCursor(Qt.CursorShape.PointingHandCursor)
-        more.setToolTip("Several gestures per action, record your own gestures and motions")
+        more.setToolTip("Several gestures or phrases per action, and the activation gesture")
         more.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; color: {PRIMARY};
@@ -320,9 +321,83 @@ class PresentationPage(StudioPage):
             }}
             QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
         """)
-        more.clicked.connect(self.open_gesture_studio.emit)
+        more.clicked.connect(lambda: self.show_more(True))
+        self.more_link = more
         layout.addWidget(more, 0, Qt.AlignmentFlag.AlignLeft)
         return frame
+
+    def _build_more(self):
+        """
+        Every trigger for every presentation action (several gestures,
+        motions or phrases each) and the activation gesture. This used to
+        live in Gesture Studio; presenters now set it all up here.
+        """
+        frame, layout = self._card()
+        frame.setObjectName("Card")
+        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setSpacing(10)
+
+        top = QHBoxLayout()
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        text.addWidget(self._label("More gestures and motions", PRIMARY_TEXT, 16, 700))
+        text.addWidget(self._label(
+            "Give an action extra gestures, motions or phrases, and choose the "
+            "activation gesture.", TEXT_MUTED, 12
+        ))
+        top.addLayout(text, 1)
+
+        hide = QPushButton("Hide")
+        hide.setCursor(Qt.CursorShape.PointingHandCursor)
+        hide.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; color: {SECONDARY_TEXT};
+                font-size: 12px; font-weight: 600; padding: 4px 8px;
+            }}
+            QPushButton:hover {{ color: {PRIMARY_TEXT}; }}
+        """)
+        hide.clicked.connect(lambda: self.show_more(False))
+        top.addWidget(hide, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(top)
+
+        from frontend.components.trigger_editor import ActionTriggerEditor
+
+        self.more_editor = ActionTriggerEditor(
+            self.profile,
+            list(ACTIONS) + ["ACTIVATE"],
+            custom_gestures=lambda: _recorded_names()[0],
+            custom_motions=lambda: _recorded_names()[1],
+        )
+        self.more_editor.changed.connect(self._on_more_changed)
+        layout.addWidget(self.more_editor)
+
+        record = QPushButton("Record your own gesture or motion in Gesture Studio  \u2192")
+        record.setCursor(Qt.CursorShape.PointingHandCursor)
+        record.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; color: {PRIMARY};
+                font-size: 12px; font-weight: 600; text-align: left; padding: 4px 2px;
+            }}
+            QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
+        """)
+        record.clicked.connect(self.open_gesture_studio.emit)
+        layout.addWidget(record, 0, Qt.AlignmentFlag.AlignLeft)
+
+        self.more_card = frame
+        frame.hide()
+        return frame
+
+    def show_more(self, visible=True):
+        self.more_card.setVisible(visible)
+        self.more_link.setVisible(not visible)
+        if visible:
+            self.more_editor.refresh()
+
+    def _on_more_changed(self):
+        # The editor saved the profile; show it in the rows and reload the
+        # running camera / voice.
+        self.refresh_bindings(refresh_editor=False)
+        self.bindings_changed.emit()
 
     def _build_tile(self, row):
         tile = QFrame()
@@ -466,7 +541,7 @@ class PresentationPage(StudioPage):
     # Data
     # ---------------------------------------------------------
 
-    def refresh_bindings(self):
+    def refresh_bindings(self, refresh_editor=True):
         """Re-read the saved gestures and phrases into the rows."""
         self._loading = True
         try:
@@ -497,6 +572,8 @@ class PresentationPage(StudioPage):
                 "Voice commands are off. Turn them on in Settings → Voice commands."
             )
             self.voice_note.setVisible(not settings["voice_enabled"])
+            if refresh_editor and hasattr(self, "more_editor"):
+                self.more_editor.refresh()
         finally:
             self._loading = False
 
@@ -537,7 +614,7 @@ class PresentationPage(StudioPage):
             n = b["more_phrases"]
             extras.append(f"{n} more phrase" + ("s" if n > 1 else ""))
         if extras:
-            parts.append("+ " + " and ".join(extras) + " in Gesture Studio")
+            parts.append("+ " + " and ".join(extras) + " (see More gestures below)")
         self._hint(row, "   ".join(parts), TEXT_MUTED)
 
     def _hint(self, row, text, color):
@@ -554,6 +631,8 @@ class PresentationPage(StudioPage):
 
     def _save(self):
         self.profile.save_profile()
+        if hasattr(self, "more_editor"):
+            self.more_editor.refresh()
         self.bindings_changed.emit()
 
     # ---------------------------------------------------------

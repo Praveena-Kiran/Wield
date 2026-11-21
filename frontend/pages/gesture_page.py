@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
 from frontend.pages.studio_page import StudioPage
 from frontend.components.gesture_recorder_dialog import GestureRecorderDialog
 from frontend.components.gesture_test_dialog import GestureTestDialog
-from frontend.components.trigger_editor import ActionTriggerEditor
 from frontend.components.motion_recorder_dialog import MotionRecorderDialog
 from backend.gestures.motions import BUILTIN_MOTION_NAMES, FINGERTIP, MotionStore
 from frontend.styles.theme import (
@@ -44,11 +43,14 @@ from backend.app_info import APP_NAME
 
 class GesturePage(StudioPage):
 
+    # The pointer to where presentation gestures are chosen now.
+    open_presentation_studio = Signal()
+
     def __init__(self, parent=None):
 
         super().__init__(
             title="Gesture Studio",
-            subtitle="Choose the gestures, motions and voice commands that control your presentations.",
+            subtitle="Record and test your own gestures and motions.",
             parent=parent,
         )
 
@@ -98,9 +100,9 @@ class GesturePage(StudioPage):
         # -----------------------------------------
 
         intro = QLabel(
-            "Each action can use a hand gesture, a motion, a voice command, "
-            "or several at once. To use them in your own studios, choose one "
-            "for each event inside that studio."
+            "Record poses and movements that are comfortable for you, and "
+            "test them with the camera. Then use them anywhere: in your "
+            "studios' events, or for your slides in Presentation Studio."
         )
         intro.setWordWrap(True)
         intro.setStyleSheet(f"""
@@ -110,20 +112,20 @@ class GesturePage(StudioPage):
 
         self.content_layout.addWidget(intro)
 
-        # -----------------------------------------
-        # Actions and their triggers (gestures / motions)
-        # -----------------------------------------
-
-        self.trigger_editor = ActionTriggerEditor(
-            self.profile_manager,
-            ["presentation_start", "presentation_next",
-             "presentation_previous", "presentation_end", "ACTIVATE"],
-            custom_gestures=lambda: self.custom_store.names(),
-            custom_motions=lambda: self.motion_store.names(),
-        )
-        self.trigger_editor.changed.connect(self._on_triggers_changed)
-
-        self.content_layout.addWidget(self.trigger_editor)
+        # Presentation gestures used to be edited here; they now live in
+        # Presentation Studio, where people present. A pointer, not a copy.
+        pointer = QPushButton("Choose your presentation gestures in Presentation Studio  \u2192")
+        pointer.setCursor(Qt.PointingHandCursor)
+        pointer.setAccessibleName("Open Presentation Studio")
+        pointer.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; color: {PRIMARY};
+                font-size: 13px; font-weight: 600; text-align: left; padding: 2px 0;
+            }}
+            QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
+        """)
+        pointer.clicked.connect(self.open_presentation_studio.emit)
+        self.content_layout.addWidget(pointer, 0, Qt.AlignLeft)
 
         test_button = QPushButton(
             "Test Gestures && Motions"
@@ -201,7 +203,7 @@ class GesturePage(StudioPage):
         "gesture": {
             "title": "Your gestures",
             "info": "Record any hand pose that's comfortable for you, "
-                    "then assign it to an action above.",
+                    "then use it for your slides in Presentation Studio or in a studio's events.",
             "button": "+ Record Custom Gesture",
             "empty": "No custom gestures yet.",
             "noun": "gesture",
@@ -521,15 +523,8 @@ class GesturePage(StudioPage):
 
         self.gesture_map = self.profile_manager.get_gesture_map()
 
-        self.trigger_editor.refresh()
-
         # Custom gesture/motion cards show their assigned action.
         if hasattr(self, "section_lists"):
             self.refresh_custom_list()
 
-    def _on_triggers_changed(self):
 
-        self.gesture_map = self.profile_manager.get_gesture_map()
-
-        if hasattr(self, "section_lists"):
-            self.refresh_custom_list()

@@ -274,6 +274,7 @@ class ActionTriggerEditor(QWidget):
         while self.layout_.count():
             widget = self.layout_.takeAt(0).widget()
             if widget:
+                widget.hide()          # don't linger until deleted
                 widget.deleteLater()
         self.rows.clear()
 
