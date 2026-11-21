@@ -50,6 +50,14 @@ KNOWN_WINDOWS_APPS = {
     "discord": [
         r"%LocalAppData%\Discord\Update.exe",
     ],
+    "steam": [
+        r"%ProgramFiles(x86)%\Steam\steam.exe",
+        r"%ProgramFiles%\Steam\steam.exe",
+    ],
+    "epicgameslauncher": [
+        r"%ProgramFiles(x86)%\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+        r"%ProgramFiles%\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+    ],
 }
 
 # Other names people type for the same apps.
@@ -63,6 +71,8 @@ ALIASES = {
     "visual studio code": "code",
     "terminal": "wt",
     "windows terminal": "wt",
+    "epic": "epicgameslauncher",
+    "epic games": "epicgameslauncher",
 }
 
 # Tried in order if an app can't be opened (Windows Terminal isn't on

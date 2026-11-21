@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from backend.paths import user_config_path
+from frontend.components.launch_list import LaunchListWidget
 from frontend.styles.theme import (
     PAGE_BG,
     ON_PRIMARY,
@@ -491,6 +492,21 @@ class CustomPage(QWidget):
         outer.addSpacing(6)
 
         # =====================================================
+        # LAUNCH LIST (apps, files, folders, websites)
+        # =====================================================
+
+        self.launch_list = LaunchListWidget(
+            "Launch list",
+            "Everything this studio opens at once. Add apps, games, files, "
+            "folders or websites; remove any with ✕.",
+        )
+        self.launch_list.changed.connect(self.save_launch_items)
+
+        outer.addWidget(
+            self.launch_list
+        )
+
+        # =====================================================
         # EVENTS HEADER
         # =====================================================
 
@@ -770,6 +786,10 @@ class CustomPage(QWidget):
             self.studio_name
         )
 
+        self.launch_list.set_items(
+            found.get("launch_items", [])
+        )
+
         if (
             found.get("type") == "custom"
             or "type" not in found
@@ -854,6 +874,26 @@ class CustomPage(QWidget):
         return self.save_all_studios(
             studios
         )
+
+    # =========================================================
+    # LAUNCH LIST
+    # =========================================================
+
+    def save_launch_items(self, items):
+        """Save the studio's launch list (and show its names on Home)."""
+
+        if not self.studio_name:
+            return False
+
+        studios = self.load_all_studios()
+
+        for studio in studios:
+            if studio.get("title", "").strip().lower() == self.studio_name.strip().lower():
+                studio["launch_items"] = items
+                studio["apps"] = [item["label"] for item in items][:4]
+                return self.save_all_studios(studios)
+
+        return False
 
     # =========================================================
     # SET STUDIO NAME

@@ -37,17 +37,32 @@
     {
         "title": "Gaming Studio",
         "time_ago": "Just now",
-        "description": "Custom gesture-controlled workspace.",
-        "apps": [],
+        "description": "Open your games and chat in one go.",
+        "apps": [
+            "Steam",
+            "Discord"
+        ],
         "last_used": "Not yet",
-        "icon_symbol": "✦",
-        "accent": "#8B5CF6",
+        "icon_symbol": "🎮",
+        "accent": "#E8743B",
         "type": "custom",
         "events": [
             {
                 "name": "open paper.io",
                 "gesture": "✋ Open Palm",
                 "action": "Open Website"
+            }
+        ],
+        "launch_items": [
+            {
+                "kind": "app",
+                "target": "steam",
+                "label": "Steam"
+            },
+            {
+                "kind": "app",
+                "target": "discord",
+                "label": "Discord"
             }
         ]
     }

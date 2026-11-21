@@ -1,34 +1,37 @@
+"""
+Coding Studio: the apps, files, folders and websites you code with,
+opened together. The list is editable (add / remove) and saved as the
+"coding_flow" steps in flows.json.
+"""
+
+import json
 from typing import Optional
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QFrame,
-)
-
-from frontend.pages.studio_page import StudioPage
-from frontend.styles.theme import (
-    ON_PRIMARY,
-    OVERLAY_2,
-    SURFACE,
-    SURFACE_HOVER,
-    BORDER,
-    PRIMARY,
-    PRIMARY_HOVER,
-    PRIMARY_PRESSED,
-    PRIMARY_TEXT,
-    SECONDARY_TEXT,
-    TEXT_MUTED,
-    SUCCESS,
-    ERROR,
-    INFO,
-)
+from PySide6.QtWidgets import QWidget
 
 from backend.automation.flow_manager import FlowManager
+from backend.paths import user_config_path
+from frontend.components.launch_list import LaunchListWidget
+from frontend.pages.studio_page import StudioPage
+
+
+FLOW = "coding_flow"
+
+
+def _show_on_home(title, labels):
+    """Keep the studio's app names on Home in step with its list."""
+
+    path = user_config_path("studios.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            studios = json.load(f)
+        for studio in studios:
+            if studio.get("title") == title:
+                studio["apps"] = labels[:4]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(studios, f, indent=4, ensure_ascii=False)
+    except (OSError, ValueError, AttributeError):
+        pass
 
 
 class CodingPage(StudioPage):
@@ -38,340 +41,34 @@ class CodingPage(StudioPage):
 
         super().__init__(
             "Coding Studio",
-            "Launch your development workspace and AI coding tools.",
+            "Open your whole coding setup in one go. Add the apps, project "
+            "folders, files and websites you use.",
             parent,
         )
 
-        # ---------------------------------------------------------
-        # Flow Manager
-        # ---------------------------------------------------------
-
         self.flow_manager = FlowManager()
 
-        # ---------------------------------------------------------
-        # Workspace header
-        # ---------------------------------------------------------
-
-        workspace_frame = QFrame()
-
-        workspace_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {SURFACE};
-                border: 1px solid {BORDER};
-                border-radius: 14px;
-            }}
-        """)
-
-        workspace_layout = QVBoxLayout(
-            workspace_frame
+        self.launch_list = LaunchListWidget(
+            "Your workspace",
+            "Launch all opens everything below. Use + Add for anything else, "
+            "like a project folder or your docs site.",
         )
+        self.launch_list.set_items(self.flow_manager.flow_items(FLOW))
+        self.launch_list.changed.connect(self._save)
 
-        workspace_layout.setContentsMargins(
-            20,
-            20,
-            20,
-            20
-        )
+        self.content_layout.addWidget(self.launch_list)
+        self.content_layout.addStretch()
 
-        workspace_layout.setSpacing(14)
+        # Kept for anything that still calls it (and the old button name).
+        self.launch_button = self.launch_list.launch_button
 
-        # ---------------------------------------------------------
-        # Title
-        # ---------------------------------------------------------
-
-        title = QLabel(
-            "Development Workspace"
-        )
-
-        title.setStyleSheet(f"""
-            color: {PRIMARY_TEXT};
-            font-size: 16px;
-            font-weight: 600;
-        """)
-
-        workspace_layout.addWidget(
-            title
-        )
-
-        # ---------------------------------------------------------
-        # Description
-        # ---------------------------------------------------------
-
-        description = QLabel(
-            "Launch the tools you need to start coding."
-        )
-
-        description.setStyleSheet(f"""
-            color: {SECONDARY_TEXT};
-            font-size: 13px;
-        """)
-
-        workspace_layout.addWidget(
-            description
-        )
-
-        # ---------------------------------------------------------
-        # Buttons
-        # ---------------------------------------------------------
-
-        buttons_layout = QHBoxLayout()
-
-        buttons_layout.setSpacing(
-            12
-        )
-
-        self.launch_button = QPushButton(
-            "▶  Launch Workspace"
-        )
-
-        self.launch_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        self.launch_button.setFixedHeight(
-            42
-        )
-
-        self.launch_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {PRIMARY};
-                color: {ON_PRIMARY};
-                border: none;
-                border-radius: 9px;
-                padding: 0 20px;
-                font-size: 13px;
-                font-weight: 600;
-            }}
-
-            QPushButton:hover {{
-                background-color: {PRIMARY_HOVER};
-            }}
-
-            QPushButton:pressed {{
-                background-color: {PRIMARY_PRESSED};
-            }}
-
-            QPushButton:disabled {{
-                background-color: {OVERLAY_2};
-                color: {TEXT_MUTED};
-            }}
-        """)
-
-        buttons_layout.addWidget(
-            self.launch_button
-        )
-
-        buttons_layout.addStretch()
-
-        workspace_layout.addLayout(
-            buttons_layout
-        )
-
-        self.content_layout.addWidget(
-            workspace_frame
-        )
-
-        # ---------------------------------------------------------
-        # Applications panel
-        # ---------------------------------------------------------
-
-        apps_frame = QFrame()
-
-        apps_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {SURFACE};
-                border: 1px solid {BORDER};
-                border-radius: 14px;
-            }}
-        """)
-
-        apps_layout = QVBoxLayout(
-            apps_frame
-        )
-
-        apps_layout.setContentsMargins(
-            20,
-            20,
-            20,
-            20
-        )
-
-        apps_layout.setSpacing(
-            10
-        )
-
-        # ---------------------------------------------------------
-        # Applications title
-        # ---------------------------------------------------------
-
-        apps_title = QLabel(
-            "Workspace Applications"
-        )
-
-        apps_title.setStyleSheet(f"""
-            color: {PRIMARY_TEXT};
-            font-size: 15px;
-            font-weight: 600;
-        """)
-
-        apps_layout.addWidget(
-            apps_title
-        )
-
-        # ---------------------------------------------------------
-        # Applications
-        # ---------------------------------------------------------
-
-        # Matches coding_flow in backend/config/flows.json.
-        applications = [
-            ("VS Code", "Code editor"),
-            ("Terminal", "Windows Terminal, or Command Prompt"),
-            ("GitHub", "Opens in your browser"),
-        ]
-
-        for name, description_text in applications:
-
-            row = QFrame()
-
-            row.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {SURFACE_HOVER};
-                    border-radius: 9px;
-                }}
-            """)
-
-            row_layout = QHBoxLayout(
-                row
-            )
-
-            row_layout.setContentsMargins(
-                14,
-                10,
-                14,
-                10
-            )
-
-            name_label = QLabel(
-                name
-            )
-
-            name_label.setStyleSheet(f"""
-                color: {PRIMARY_TEXT};
-                font-size: 13px;
-                font-weight: 600;
-            """)
-
-            description_label = QLabel(
-                description_text
-            )
-
-            description_label.setStyleSheet(f"""
-                color: {SECONDARY_TEXT};
-                font-size: 12px;
-            """)
-
-            row_layout.addWidget(
-                name_label
-            )
-
-            row_layout.addStretch()
-
-            row_layout.addWidget(
-                description_label
-            )
-
-            apps_layout.addWidget(
-                row
-            )
-
-        self.content_layout.addWidget(
-            apps_frame
-        )
-
-        # ---------------------------------------------------------
-        # Connections
-        # ---------------------------------------------------------
-
-        self.launch_button.clicked.connect(
-            self._launch_workspace
-        )
-
-    # =============================================================
-    # Launch Coding Workspace
-    # =============================================================
+    def _save(self, items):
+        try:
+            self.flow_manager.save_flow_items(FLOW, items, name="Coding Flow")
+            _show_on_home("Coding Studio", [item["label"] for item in items])
+            self.status_label.setText("Status: Saved.")
+        except OSError as e:
+            self.status_label.setText(f"Status: Couldn't save ({e}).")
 
     def _launch_workspace(self):
-
-        print(
-            "🚀 Launching Coding Workspace"
-        )
-
-        # Update UI
-        self.status_label.setText(
-            "Status: Launching workspace..."
-        )
-
-        self.status_label.setStyleSheet(f"""
-            color: {INFO};
-            font-size: 12px;
-        """)
-
-        # Prevent double-click launches
-        self.launch_button.setEnabled(
-            False
-        )
-
-        try:
-
-            # -----------------------------------------------------
-            # Execute coding_flow from flows.json
-            # -----------------------------------------------------
-
-            self.flow_manager.execute_flow(
-                "coding_flow"
-            )
-
-            # -----------------------------------------------------
-            # Success
-            # -----------------------------------------------------
-
-            self.status_label.setText(
-                "Status: Workspace launched"
-            )
-
-            self.status_label.setStyleSheet(f"""
-                color: {SUCCESS};
-                font-size: 12px;
-            """)
-
-            print(
-                "✅ Coding Workspace launched"
-            )
-
-        except Exception as e:
-
-            # -----------------------------------------------------
-            # Error
-            # -----------------------------------------------------
-
-            self.status_label.setText(
-                f"Status: Some apps didn't open. {e}"
-            )
-
-            self.status_label.setWordWrap(True)
-
-            self.status_label.setStyleSheet(f"""
-                color: {ERROR};
-                font-size: 12px;
-            """)
-
-            print(
-                f"❌ Coding Workspace Error: {e}"
-            )
-
-        finally:
-
-            self.launch_button.setEnabled(
-                True
-            )
-            
+        return self.launch_list.launch()

@@ -80,6 +80,25 @@ class FlowManager:
             print(f"⚠ Could not save updated flows: {e}")
 
     # =========================================================
+    # LAUNCH LISTS (Coding Studio's editable list)
+    # =========================================================
+
+    def flow_items(self, flow_name):
+        """The launchable steps of a flow, as launch-list items."""
+        from backend.automation.launch_items import from_flow_steps
+        return from_flow_steps(self.flows.get(flow_name, {}).get("actions", []))
+
+    def save_flow_items(self, flow_name, items, name=None):
+        """Replace a flow's steps with these launch-list items and save."""
+        from backend.automation.launch_items import to_flow_steps
+
+        flow = self.flows.setdefault(flow_name, {"name": name or flow_name})
+        flow["actions"] = to_flow_steps(items)
+
+        with open(user_config_path("flows.json"), "w", encoding="utf-8") as f:
+            json.dump(self.flows, f, indent=4, ensure_ascii=False)
+
+    # =========================================================
     # OLD FLOW SYSTEM
     # =========================================================
 
