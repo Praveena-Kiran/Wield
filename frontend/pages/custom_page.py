@@ -60,12 +60,12 @@ class _EventIconBadge(QWidget):
     """Refined circular icon badge for action types."""
 
     ACTION_MAP = {
-        "Open Application": ("💻", "#5B8CFF"),
-        "Open File": ("📄", "#6875F5"),
-        "Open Website": ("🌐", "#5B8CFF"),
-        "Hotkey": ("⌨", "#8B70FF"),
-        "Wait": ("⏳", "#7C5CFF"),
-        "PowerPoint": ("📊", "#6875F5"),
+        "Open Application": ("💻", "#4FB0E8"),
+        "Open File": ("📄", "#F2B54A"),
+        "Open Website": ("🌐", "#5FC9A8"),
+        "Hotkey": ("⌨", "#E88AA4"),
+        "Wait": ("⏳", "#A69F96"),
+        "PowerPoint": ("📊", "#E8743B"),
     }
 
     def __init__(self, action: str = "", size: int = 38, parent=None):
@@ -682,7 +682,7 @@ class CustomPage(QWidget):
             "apps": [],
             "last_used": "Not yet",
             "icon_symbol": "✦",
-            "accent": "#8B5CF6",
+            "accent": PRIMARY,
             "type": "custom",
             "events": []
         }
@@ -1152,7 +1152,7 @@ class CustomPage(QWidget):
                 }}
                 QFrame#EventCard:hover {{
                     background-color: {SURFACE_HOVER};
-                    border: 1px solid rgba(124, 92, 255, 0.35);
+                    border: 1px solid {BORDER_HOVER};
                 }}
             """)
 

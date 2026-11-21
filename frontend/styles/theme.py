@@ -21,54 +21,56 @@ import os
 
 THEMES = {
     "dark": {
+        # Warm charcoal with an apricot accent (the peach of the logo).
         "label": "Dark",
-        "BG_DARK": "#08090D",
-        "SURFACE": "#101118",
-        "SURFACE_HOVER": "#171923",
-        "SURFACE_ACTIVE": "#1D202D",
-        "SURFACE_OVERLAY": "#141520",
-        "BORDER": "#252936",
-        "BORDER_SUBTLE": "#1E222D",
-        # #7C5CFF nudged darker so white button text passes WCAG AA (4.6:1).
-        "PRIMARY": "#7857FC",
-        "PRIMARY_HOVER": "#8466FF",
-        "PRIMARY_PRESSED": "#6845EC",
-        "PRIMARY_MUTED": "rgba(124, 92, 255, 0.15)",
-        "SECONDARY_ACCENT": "#5B8CFF",
-        "PRIMARY_TEXT": "#F5F5F7",
-        "SECONDARY_TEXT": "#8B93A7",
-        "TEXT_MUTED": "#7E8599",
-        "TEXT_DISABLED": "#474D5E",
+        "BG_DARK": "#0F0E0D",
+        "SURFACE": "#181715",
+        "SURFACE_HOVER": "#201E1B",
+        "SURFACE_ACTIVE": "#282521",
+        "SURFACE_OVERLAY": "#1C1A18",
+        "BORDER": "#2F2B27",
+        "BORDER_SUBTLE": "#25221F",
+        "PRIMARY": "#FF9466",
+        "PRIMARY_HOVER": "#FFA781",
+        "PRIMARY_PRESSED": "#F07E4E",
+        "PRIMARY_MUTED": "rgba(255, 148, 102, 0.15)",
+        "SECONDARY_ACCENT": "#6FD3B0",
+        "PRIMARY_TEXT": "#F5F1EB",
+        "SECONDARY_TEXT": "#A69F96",
+        "TEXT_MUTED": "#968F86",
+        "TEXT_DISABLED": "#55504A",
         "TEXT_STRONG": "#FFFFFF",
-        "ON_PRIMARY": "#FFFFFF",
-        "OVERLAY_1": "rgba(255, 255, 255, 0.04)",
-        "OVERLAY_2": "rgba(255, 255, 255, 0.08)",
-        "OVERLAY_BORDER": "rgba(255, 255, 255, 0.16)",
+        # Dark text on the light apricot reads better than white.
+        "ON_PRIMARY": "#1F120B",
+        "OVERLAY_1": "rgba(255, 245, 235, 0.04)",
+        "OVERLAY_2": "rgba(255, 245, 235, 0.08)",
+        "OVERLAY_BORDER": "rgba(255, 245, 235, 0.16)",
         "BACKDROP": None,
     },
     "light": {
+        # Warm paper with a burnt-orange accent.
         "label": "Light",
-        "BG_DARK": "#F5F5F8",
-        "SURFACE": "#FFFFFF",
-        "SURFACE_HOVER": "#F1F1F6",
-        "SURFACE_ACTIVE": "#E8E8F0",
-        "SURFACE_OVERLAY": "#FFFFFF",
-        "BORDER": "#E1E2EA",
-        "BORDER_SUBTLE": "#ECEDF2",
-        "PRIMARY": "#6544EE",
-        "PRIMARY_HOVER": "#7558F3",
-        "PRIMARY_PRESSED": "#5232DC",
-        "PRIMARY_MUTED": "rgba(101, 68, 238, 0.10)",
-        "SECONDARY_ACCENT": "#2F6BEA",
-        "PRIMARY_TEXT": "#15161C",
-        "SECONDARY_TEXT": "#555A6B",
-        "TEXT_MUTED": "#676C7F",
-        "TEXT_DISABLED": "#A6AAB8",
+        "BG_DARK": "#F7F3EC",
+        "SURFACE": "#FFFDF9",
+        "SURFACE_HOVER": "#F3EEE6",
+        "SURFACE_ACTIVE": "#EBE4D9",
+        "SURFACE_OVERLAY": "#FFFDF9",
+        "BORDER": "#E3DACC",
+        "BORDER_SUBTLE": "#EDE6DB",
+        "PRIMARY": "#B8501C",
+        "PRIMARY_HOVER": "#C75E28",
+        "PRIMARY_PRESSED": "#A04515",
+        "PRIMARY_MUTED": "rgba(184, 80, 28, 0.10)",
+        "SECONDARY_ACCENT": "#1F8A6A",
+        "PRIMARY_TEXT": "#1C1916",
+        "SECONDARY_TEXT": "#5A534B",
+        "TEXT_MUTED": "#68615A",
+        "TEXT_DISABLED": "#ADA597",
         "TEXT_STRONG": "#000000",
         "ON_PRIMARY": "#FFFFFF",
-        "OVERLAY_1": "rgba(20, 22, 40, 0.04)",
-        "OVERLAY_2": "rgba(20, 22, 40, 0.07)",
-        "OVERLAY_BORDER": "rgba(20, 22, 40, 0.18)",
+        "OVERLAY_1": "rgba(40, 30, 20, 0.04)",
+        "OVERLAY_2": "rgba(40, 30, 20, 0.07)",
+        "OVERLAY_BORDER": "rgba(40, 30, 20, 0.18)",
         "BACKDROP": None,
     },
     "jungle": {
@@ -174,10 +176,10 @@ SECONDARY_ACCENT = _T["SECONDARY_ACCENT"]
 SECONDARY_ACCENT_HOVER = _T["SECONDARY_ACCENT"]
 SECONDARY_ACCENT_MUTED = _T["PRIMARY_MUTED"]
 
-# Studio icon variations
-ACCENT_INDIGO = "#6875F5"
-ACCENT_BLUE_INDIGO = "#5B8CFF"
-ACCENT_VIOLET = "#8B5CF6"
+# Studio icon variations (unused names kept for older imports)
+ACCENT_INDIGO = _T["SECONDARY_ACCENT"]
+ACCENT_BLUE_INDIGO = _T["SECONDARY_ACCENT"]
+ACCENT_VIOLET = _T["PRIMARY"]
 ACCENT_PURPLE_INDIGO = _T["PRIMARY"]
 
 # Semantic status colors
@@ -341,7 +343,7 @@ def global_stylesheet():
         "#252936": BORDER,
         "#F5F5F7": PRIMARY_TEXT,
         "#7C5CFF": PRIMARY,
-        "#FFFFFF": ON_PRIMARY,
+        "#FFFFFF": ON_PRIMARY,  # only used for text on PRIMARY
         "rgba(255, 255, 255, 0.10)": OVERLAY_2,
         "rgba(255, 255, 255, 0.20)": OVERLAY_BORDER,
     }

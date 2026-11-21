@@ -24,7 +24,7 @@ from backend.settings import gesture_settings
 KIND_COLORS = {
     "info": "#60A5FA",
     "armed": "#34D399",
-    "action": "#A78BFA",
+    "action": "#FF9466",
     "error": "#F87171",
 }
 
