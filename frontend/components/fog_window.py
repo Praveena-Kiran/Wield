@@ -30,7 +30,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from frontend.components.gesture_recorder_dialog import CameraPreviewWorker
-from backend.fog import fingertip, hand_mode, note_path
+from backend.fog import PenState, PointSmoother, fingertip, hand_mode, note_path
 from backend.settings import gesture_settings
 
 
@@ -39,6 +39,7 @@ MASK_SIZE = QSize(960, 340)       # mask resolution (stretched to the widget)
 STROKE_WIDTHS = {"thin": 0.045, "medium": 0.075, "thick": 0.115}
 DEFAULT_STROKE = "medium"
 MAX_JUMP = 0.18                   # ignore jumps larger than this (fraction of width)
+MIN_STEP = 0.3                    # skip moves smaller than this × pen width
 WIPE_HOLD_SECONDS = 1.0
 FADE_EVERY_SECONDS = 0.5          # live strokes fog over: ~half gone in 30 s
 FADE_ALPHA = 252
@@ -103,7 +104,9 @@ class FogWindow(QWidget):
         self.saved = _new_mask()
         self.live = _new_mask()
 
-        self._last_point = None
+        self._stroke = []               # last few smoothed points of this stroke
+        self._smoother = PointSmoother()
+        self._pen = PenState()
         self._wipe_since = None
         self._last_fade = time.monotonic()
         self._mode = None
@@ -157,7 +160,7 @@ class FogWindow(QWidget):
         """Clear the window (the saved file only changes when you save)."""
         self.saved = _new_mask()
         self.live = _new_mask()
-        self._last_point = None
+        self._end_stroke()
         self.status_changed.emit("Wiped clean. Save to keep it empty.")
         self.update()
 
@@ -228,7 +231,8 @@ class FogWindow(QWidget):
             thread.finished.connect(lambda t=thread: self._retiring.remove(t) if t in self._retiring else None)
 
         self.frame = None
-        self._last_point = None
+        self._end_stroke()
+        self._pen.reset()
         self.camera_state_changed.emit(False)
         self.update()
 
@@ -288,23 +292,62 @@ class FogWindow(QWidget):
             wy / max(self.height(), 1) * MASK_SIZE.height(),
         )
 
-    def _draw_stroke(self, a, b):
-
+    def _pen_painter(self):
         # A solid stroke; the soft, fingertip-on-glass edge comes from
         # blurring the whole mask when painting (see _soft_mask). Drawing a
         # soft edge per segment made overlapping halos look dotted.
-        width = self.stroke_width
         painter = QPainter(self.live)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(QPen(QColor(0, 0, 0, 255), width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        painter.drawLine(a, b)
+        painter.setPen(QPen(QColor(0, 0, 0, 255), self.stroke_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.setBrush(Qt.NoBrush)
+        return painter
+
+    @staticmethod
+    def _mid(a, b):
+        return QPointF((a.x() + b.x()) / 2, (a.y() + b.y()) / 2)
+
+    def _add_point(self, point):
+        """
+        Extend the stroke to `point`. Segments are quadratic curves through
+        the midpoints of successive points (each point is the control), so
+        the line bends smoothly instead of zig-zagging between samples.
+        """
+
+        pts = self._stroke
+        pts.append(point)
+        del pts[:-3]
+
+        painter = self._pen_painter()
+
+        if len(pts) == 1:
+            painter.drawLine(point, point)                 # a dot
+        elif len(pts) == 2:
+            painter.drawLine(pts[0], self._mid(pts[0], pts[1]))
+        else:
+            path = QPainterPath(self._mid(pts[0], pts[1]))
+            path.quadTo(pts[1], self._mid(pts[1], pts[2]))
+            painter.drawPath(path)
+
         painter.end()
+
+    def _end_stroke(self):
+        """Finish the line to the last point and start afresh next time."""
+
+        pts = self._stroke
+        if len(pts) >= 2:
+            painter = self._pen_painter()
+            painter.drawLine(self._mid(pts[-2], pts[-1]), pts[-1])
+            painter.end()
+
+        self._stroke = []
+        self._smoother.reset()
 
     def handle_hand(self, landmarks, now=None):
         """Process one frame's landmarks (public so it can be tested)."""
 
         now = now if now is not None else time.monotonic()
-        mode = hand_mode(landmarks)
+        raw = hand_mode(landmarks)
+        mode = self._pen.update(raw, now)
 
         if mode != self._mode:
             self._mode = mode
@@ -314,7 +357,7 @@ class FogWindow(QWidget):
                 self.status_changed.emit("Paused")
 
         if mode == "wipe":
-            self._last_point = None
+            self._end_stroke()
             if self._wipe_since is None:
                 self._wipe_since = now
             elif now - self._wipe_since >= WIPE_HOLD_SECONDS:
@@ -325,24 +368,30 @@ class FogWindow(QWidget):
         self._wipe_since = None
 
         if mode != "write":
-            self._last_point = None
+            if self._stroke:
+                self._end_stroke()
+                self.update()
             return
 
-        point = self._to_mask(fingertip(landmarks))
+        if raw != "write":
+            return      # a short flicker: keep the stroke, draw nothing
+
+        point = self._to_mask(self._smoother(fingertip(landmarks), now))
 
         if point is None:
-            self._last_point = None
+            self._end_stroke()
             return
 
-        last = self._last_point
-
-        if last is not None:
+        if self._stroke:
+            last = self._stroke[-1]
             jump = (point - last).manhattanLength() / MASK_SIZE.width()
             if jump > MAX_JUMP:
-                last = None   # tracking glitch: start a new stroke
+                self._end_stroke()          # tracking glitch: start a new stroke
+                point = self._to_mask(self._smoother(fingertip(landmarks), now))
+            elif (point - last).manhattanLength() < self.stroke_width * MIN_STEP:
+                return                      # too small a move: wait for more
 
-        self._draw_stroke(last or point, point)
-        self._last_point = point
+        self._add_point(point)
         self.update()
 
     @Slot(object)

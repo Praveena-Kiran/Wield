@@ -1,7 +1,9 @@
 import math
 import unittest
 
-from backend.fog import fingertip, hand_mode
+import random
+
+from backend.fog import OneEuroFilter, PenState, PointSmoother, fingertip, hand_mode
 
 
 def hand(extended):
@@ -30,9 +32,58 @@ class HandModeTests(unittest.TestCase):
         self.assertIsNone(hand_mode(hand({"index", "middle"})))   # peace sign
         self.assertIsNone(hand_mode(None))
 
+    def test_write_is_forgiving(self):
+        # Ring or pinky a little out still writes; a peace sign doesn't.
+        self.assertEqual(hand_mode(hand({"index", "pinky"})), "write")
+        self.assertEqual(hand_mode(hand({"index", "ring"})), "write")
+        self.assertIsNone(hand_mode(hand({"index", "ring", "pinky"})))
+
     def test_fingertip(self):
         self.assertEqual(fingertip(hand({"index"}))[:2], (0.42, 0.4))
         self.assertIsNone(fingertip(None))
+
+
+class SmoothingTests(unittest.TestCase):
+
+    def test_one_euro_removes_jitter_from_a_still_finger(self):
+        random.seed(3)
+        f = OneEuroFilter()
+        raw, out = [], []
+        for i in range(120):
+            x = 0.5 + random.uniform(-0.01, 0.01)
+            raw.append(x)
+            out.append(f(x, i / 30))
+        spread = lambda v: max(v[30:]) - min(v[30:])
+        self.assertLess(spread(out), spread(raw) / 2)
+
+    def test_one_euro_keeps_up_with_a_fast_move(self):
+        f = OneEuroFilter()
+        for i in range(30):
+            y = f(i * 0.02, i / 30)      # 0.6 of the screen per second
+        self.assertGreater(y, 0.58 - 0.06)
+
+    def test_point_smoother_resets_after_a_pause(self):
+        s = PointSmoother()
+        s((0.1, 0.1), 0.0)
+        self.assertEqual(s((0.9, 0.9), 2.0), (0.9, 0.9))
+
+
+class PenStateTests(unittest.TestCase):
+
+    def test_needs_two_frames_to_start(self):
+        pen = PenState()
+        self.assertIsNone(pen.update("write", 0.00))
+        self.assertEqual(pen.update("write", 0.03), "write")
+
+    def test_survives_short_dropouts_and_flickers(self):
+        pen = PenState()
+        pen.update("write", 0.00)
+        pen.update("write", 0.03)
+        self.assertEqual(pen.update(None, 0.20), "write")      # hand lost briefly
+        self.assertEqual(pen.update("write", 0.25), "write")
+        self.assertEqual(pen.update("pause", 0.30), "write")   # one odd frame
+        self.assertEqual(pen.update("pause", 0.50), "pause")   # really lifted
+        self.assertFalse(pen.down)
 
 
 if __name__ == "__main__":
