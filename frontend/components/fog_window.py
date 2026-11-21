@@ -35,7 +35,9 @@ from backend.settings import gesture_settings
 
 
 MASK_SIZE = QSize(960, 340)       # mask resolution (stretched to the widget)
-STROKE_WIDTH = 0.075              # of the mask height
+# Pen sizes (chosen in Settings), as a fraction of the mask height.
+STROKE_WIDTHS = {"thin": 0.045, "medium": 0.075, "thick": 0.115}
+DEFAULT_STROKE = "medium"
 MAX_JUMP = 0.18                   # ignore jumps larger than this (fraction of width)
 WIPE_HOLD_SECONDS = 1.0
 FADE_EVERY_SECONDS = 0.5          # live strokes fog over: ~half gone in 30 s
@@ -95,6 +97,7 @@ class FogWindow(QWidget):
 
         self.filter = "fog"
         self.fog_colour = DEFAULT_FOG
+        self.stroke = DEFAULT_STROKE
         self.apply_settings()
         self.frame = None              # latest camera QImage
         self.saved = _new_mask()
@@ -159,11 +162,18 @@ class FogWindow(QWidget):
         self.update()
 
     def apply_settings(self, settings=None):
-        """Re-read the fog colour from Settings."""
+        """Re-read the fog colour and pen size from Settings."""
         settings = settings or gesture_settings.load()
         colour = settings.get("fog_colour", DEFAULT_FOG)
         self.fog_colour = colour if colour in FOG_STYLES else DEFAULT_FOG
+        stroke = settings.get("fog_stroke", DEFAULT_STROKE)
+        self.stroke = stroke if stroke in STROKE_WIDTHS else DEFAULT_STROKE
         self.update()
+
+    @property
+    def stroke_width(self):
+        """Pen width in mask pixels."""
+        return MASK_SIZE.height() * STROKE_WIDTHS[self.stroke]
 
     @property
     def style(self):
@@ -283,7 +293,7 @@ class FogWindow(QWidget):
         # A solid stroke; the soft, fingertip-on-glass edge comes from
         # blurring the whole mask when painting (see _soft_mask). Drawing a
         # soft edge per segment made overlapping halos look dotted.
-        width = MASK_SIZE.height() * STROKE_WIDTH
+        width = self.stroke_width
         painter = QPainter(self.live)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QPen(QColor(0, 0, 0, 255), width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))

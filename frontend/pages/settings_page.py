@@ -460,6 +460,18 @@ class SettingsPage(StudioPage):
             self.fog_colour,
         )
 
+        self.fog_stroke = self._choices(
+            "fog_stroke",
+            [("thin", "Thin"), ("medium", "Medium"), ("thick", "Thick")],
+            "Pen size",
+        )
+        self._row(
+            "Pen size",
+            "How thick your writing is. Thick is easier to read and more "
+            "forgiving if your hand moves a little.",
+            self.fog_stroke,
+        )
+
     def _choices(self, key, options, accessible_name):
         """A row of pill buttons, one per option; saves `key` when clicked."""
 

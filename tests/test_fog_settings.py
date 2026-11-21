@@ -43,6 +43,14 @@ class FogSettingsTests(unittest.TestCase):
             self.assertEqual(window.fog_colour, "black")
             self.assertGreater(window.style["ink"].lightness(), light_ink)
             self.assertLess(window.style["fog"].lightness(), 60)
+
+            medium = window.stroke_width
+            G.save("fog_stroke", "thick")
+            window.apply_settings()
+            self.assertGreater(window.stroke_width, medium)
+            G.save("fog_stroke", "huge")
+            window.apply_settings()
+            self.assertEqual(window.stroke, "medium")
         finally:
             window.deleteLater()
 
