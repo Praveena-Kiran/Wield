@@ -28,6 +28,7 @@ from frontend.styles.theme import (
     BORDER,
     ON_PRIMARY,
     PRIMARY,
+    PRIMARY_MUTED,
     PRIMARY_HOVER,
     PRIMARY_TEXT,
     SECONDARY_TEXT,
@@ -36,12 +37,14 @@ from frontend.styles.theme import (
     TEXT_MUTED,
 )
 from frontend.styles import theme as theme_module
-from backend.paths import user_data_dir
+from backend.paths import APP_DIR, user_data_dir
 from backend.settings.settings_manager import SettingsManager
 from backend.settings import gesture_settings
 from backend.settings.gesture_settings import ARM_TIMEOUT_CHOICES, HOLD_TIME_CHOICES
 from backend.app_info import APP_NAME
 from backend.voice import model as voice_model
+
+CHEVRON = os.path.join(APP_DIR, "frontend", "styles", "icons", "chevron-down.svg").replace("\\", "/")
 
 
 
@@ -87,8 +90,21 @@ class SettingsPage(StudioPage):
         self.setStyleSheet(self.styleSheet() + f"""
             QComboBox {{
                 background: {SURFACE}; color: {PRIMARY_TEXT};
-                border: 1px solid {BORDER}; border-radius: 8px;
-                padding: 6px 10px; min-height: 24px; min-width: 160px;
+                border: 1px solid {BORDER}; border-radius: 17px;
+                padding: 0 14px; min-height: 34px; min-width: 220px;
+            }}
+            QComboBox:hover {{ border: 1px solid {PRIMARY}; }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding; subcontrol-position: center right;
+                width: 28px; border: none; background: transparent;
+            }}
+            QComboBox::down-arrow {{ image: url({CHEVRON}); width: 12px; height: 12px; }}
+            QComboBox QAbstractItemView {{
+                background-color: {SURFACE}; color: {PRIMARY_TEXT};
+                border: 1px solid {BORDER}; border-radius: 12px;
+                padding: 6px; outline: 0;
+                selection-background-color: {PRIMARY_MUTED};
+                selection-color: {PRIMARY_TEXT};
             }}
             QWidget#SettingsRow {{ background: transparent; }}
             QCheckBox {{ color: {PRIMARY_TEXT}; font-size: 14px; spacing: 10px; background: transparent; }}
@@ -143,16 +159,11 @@ class SettingsPage(StudioPage):
 
         # Hold time ---------------------------------------------------
 
-        self.hold_time = QComboBox()
-        self.hold_time.setAccessibleName("Hold time")
-        for seconds in HOLD_TIME_CHOICES:
-            self.hold_time.addItem(
-                "Instant" if seconds == 0 else f"{seconds:g} seconds",
-                seconds,
-            )
-        self._select(self.hold_time, self.settings["hold_time"])
-        self.hold_time.currentIndexChanged.connect(
-            lambda: self._save("hold_time", self.hold_time.currentData())
+        self.hold_time = self._choices(
+            "hold_time",
+            [(seconds, "Instant" if seconds == 0 else f"{seconds:g} s")
+             for seconds in HOLD_TIME_CHOICES],
+            "Hold time",
         )
 
         self._row(
@@ -177,6 +188,8 @@ class SettingsPage(StudioPage):
             self.require_arm,
         )
 
+        # These two only matter with the checkbox on, so they are shown
+        # only then (a greyed-out dropdown looked like an empty one).
         self.arm_gesture = QComboBox()
         self.arm_gesture.setAccessibleName("Activation gesture")
         self._fill_gestures()
@@ -184,18 +197,21 @@ class SettingsPage(StudioPage):
             lambda: self._save("arm_gesture", self.arm_gesture.currentData())
         )
 
-        self._row("Gesture", "Make this to start responding.", self.arm_gesture)
-
-        self.arm_timeout = QComboBox()
-        self.arm_timeout.setAccessibleName("Switch off after")
-        for seconds in ARM_TIMEOUT_CHOICES:
-            self.arm_timeout.addItem(f"{seconds} seconds without gestures", seconds)
-        self._select(self.arm_timeout, self.settings["arm_timeout"])
-        self.arm_timeout.currentIndexChanged.connect(
-            lambda: self._save("arm_timeout", self.arm_timeout.currentData())
+        self.arm_gesture_row = self._row(
+            "Gesture", "Make this to start responding.", self.arm_gesture
         )
 
-        self._row("Switch off after", None, self.arm_timeout)
+        self.arm_timeout = self._choices(
+            "arm_timeout",
+            [(seconds, f"{seconds} s") for seconds in ARM_TIMEOUT_CHOICES],
+            "Switch off after",
+        )
+
+        self.arm_timeout_row = self._row(
+            "Switch off after",
+            "Seconds without gestures before Wield stops responding again.",
+            self.arm_timeout,
+        )
 
         self._on_require_arm(self.settings["require_arm"], save=False)
 
@@ -730,8 +746,8 @@ class SettingsPage(StudioPage):
     def _on_require_arm(self, checked, save=True):
         if save:
             self._save("require_arm", bool(checked))
-        self.arm_gesture.setEnabled(checked)
-        self.arm_timeout.setEnabled(checked)
+        self.arm_gesture_row.setVisible(checked)
+        self.arm_timeout_row.setVisible(checked)
 
     def _open_data_folder(self):
         self._open_path(user_data_dir())

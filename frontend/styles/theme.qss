@@ -76,3 +76,15 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
     background: none;
     width: 0px;
 }
+
+/* Every dropdown's list is opaque, so its options always show (a
+   transparent popup can render as an empty box on Windows). */
+QComboBox QAbstractItemView {
+    background-color: #101118;
+    color: #F5F5F7;
+    border: 1px solid #252936;
+    outline: 0;
+    padding: 4px;
+    selection-background-color: rgba(255, 255, 255, 0.10);
+    selection-color: #F5F5F7;
+}
