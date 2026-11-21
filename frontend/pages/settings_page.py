@@ -114,6 +114,8 @@ class SettingsPage(StudioPage):
 
         self._build_appearance()
 
+        self._build_window()
+
         self._section("Recognition")
 
         # Sensitivity -------------------------------------------------
@@ -438,6 +440,63 @@ class SettingsPage(StudioPage):
 
         self._show_restart(saved != theme_module.THEME_NAME)
 
+    # -----------------------------------------------------
+    # YOUR WINDOW (the fog on Home)
+    # -----------------------------------------------------
+
+    def _build_window(self):
+
+        self._section("Your window")
+
+        self.fog_colour = self._choices(
+            "fog_colour",
+            [("white", "White fog"), ("black", "Black fog")],
+            "Fog colour",
+        )
+        self._row(
+            "Fog",
+            "The mist you write on, on Home. The writing switches to dark ink "
+            "on white fog and light ink on black fog, so it is always easy to read.",
+            self.fog_colour,
+        )
+
+    def _choices(self, key, options, accessible_name):
+        """A row of pill buttons, one per option; saves `key` when clicked."""
+
+        row = QHBoxLayout()
+        row.setSpacing(8)
+
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+
+        for value, label in options:
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setChecked(self.settings.get(key) == value)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setAccessibleName(f"{accessible_name}: {label}")
+            button.setProperty("choice", value)
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background: {SURFACE}; color: {PRIMARY_TEXT};
+                    border: 1px solid {BORDER}; border-radius: 17px;
+                    padding: 0 18px; min-height: 34px;
+                    font-size: 13px; font-weight: 600;
+                }}
+                QPushButton:hover {{ border: 1px solid {PRIMARY}; }}
+                QPushButton:checked {{
+                    background: {PRIMARY}; color: {ON_PRIMARY};
+                    border: 1px solid {PRIMARY};
+                }}
+            """)
+            button.clicked.connect(lambda checked=False, v=value: self._save(key, v))
+            group.addButton(button)
+            row.addWidget(button)
+
+        row.addStretch()
+        row.group = group
+        return row
+
     def _show_restart(self, visible):
         self.restart_note.setVisible(visible)
         self.restart_button.setVisible(visible)
@@ -648,7 +707,10 @@ class SettingsPage(StudioPage):
     def _save(self, key, value):
         gesture_settings.save(key, value)
         self.settings[key] = value
-        self.status_label.setText("Status: Saved. Applies next time a studio starts listening.")
+        if key.startswith("fog_"):
+            self.status_label.setText("Status: Saved. You'll see it on your window on Home.")
+        else:
+            self.status_label.setText("Status: Saved. Applies next time a studio starts listening.")
 
     def _on_sensitivity(self, value):
         self._save("sensitivity", int(value))

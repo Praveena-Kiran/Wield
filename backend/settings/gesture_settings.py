@@ -14,6 +14,9 @@ Stored in the user's settings.json (via SettingsManager):
     feedback_overlay  bool  small always-on-top note, visible over slideshows
     voice_enabled     bool  listen for spoken commands (offline)
     voice_wake_word   bool  commands must start with "Hey Wield"
+    fog_colour        "white" | "black"  the fog on Home's window; the
+                      writing uses a contrasting ink
+    fog_stroke        "thin" | "medium" | "thick"  pen size on the window
 
 thresholds() turns these into the numbers the matchers use.
 """
@@ -31,7 +34,12 @@ DEFAULTS = {
     "feedback_overlay": True,
     "voice_enabled": False,
     "voice_wake_word": True,
+    "fog_colour": "white",
+    "fog_stroke": "medium",
 }
+
+FOG_COLOURS = ("white", "black")
+FOG_STROKES = ("thin", "medium", "thick")
 
 HOLD_TIME_CHOICES = [0.0, 0.3, 0.6, 1.0, 1.5]
 ARM_TIMEOUT_CHOICES = [5, 10, 30, 60]
@@ -57,6 +65,11 @@ def load():
     for key in ("require_arm", "sound_feedback", "feedback_overlay",
                 "voice_enabled", "voice_wake_word"):
         values[key] = bool(values[key])
+
+    if values["fog_colour"] not in FOG_COLOURS:
+        values["fog_colour"] = DEFAULTS["fog_colour"]
+    if values["fog_stroke"] not in FOG_STROKES:
+        values["fog_stroke"] = DEFAULTS["fog_stroke"]
 
     return values
 

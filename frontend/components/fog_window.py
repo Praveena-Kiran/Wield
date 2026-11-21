@@ -31,6 +31,7 @@ from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from frontend.components.gesture_recorder_dialog import CameraPreviewWorker
 from backend.fog import fingertip, hand_mode, note_path
+from backend.settings import gesture_settings
 
 
 MASK_SIZE = QSize(960, 340)       # mask resolution (stretched to the widget)
@@ -42,12 +43,25 @@ FADE_ALPHA = 252
 
 FILTERS = ("fog", "clear", "mono")
 
-# Fog and scene colours work on every theme: a light mist over a darker scene,
-# so writing (which reveals the scene) is always visible.
-FOG_TINT = QColor(222, 228, 238, 150)
+# Two fogs, chosen in Settings. Writing wipes the fog away and leaves a
+# soft line of "ink" in a colour that contrasts with that fog, so it reads
+# whatever the camera shows behind it.
+FOG_STYLES = {
+    "white": {
+        "fog": QColor(236, 238, 242, 175),
+        "ink": QColor(28, 26, 32, 170),
+        "hint": QColor("#3A3F4B"),
+    },
+    "black": {
+        "fog": QColor(14, 13, 16, 185),
+        "ink": QColor(250, 246, 238, 190),
+        "hint": QColor("#D9D4CC"),
+    },
+}
+DEFAULT_FOG = "white"
+
 SCENE_BASE = QColor("#2A2E38")
 SCENE_SHAPES = (QColor("#3A3F4B"), QColor("#4A4535"), QColor("#343A48"))
-HINT_COLOUR = QColor("#3A3F4B")   # readable on the light fog in every theme
 
 
 def _new_mask():
@@ -80,6 +94,8 @@ class FogWindow(QWidget):
         self.setAccessibleName("Your window: a foggy camera view you can write on")
 
         self.filter = "fog"
+        self.fog_colour = DEFAULT_FOG
+        self.apply_settings()
         self.frame = None              # latest camera QImage
         self.saved = _new_mask()
         self.live = _new_mask()
@@ -141,6 +157,17 @@ class FogWindow(QWidget):
         self._last_point = None
         self.status_changed.emit("Wiped clean. Save to keep it empty.")
         self.update()
+
+    def apply_settings(self, settings=None):
+        """Re-read the fog colour from Settings."""
+        settings = settings or gesture_settings.load()
+        colour = settings.get("fog_colour", DEFAULT_FOG)
+        self.fog_colour = colour if colour in FOG_STYLES else DEFAULT_FOG
+        self.update()
+
+    @property
+    def style(self):
+        return FOG_STYLES[self.fog_colour]
 
     def set_filter(self, name):
         if name in FILTERS:
@@ -366,7 +393,7 @@ class FogWindow(QWidget):
         )
 
         p = QPainter(fog)
-        p.fillRect(fog.rect(), FOG_TINT)
+        p.fillRect(fog.rect(), self.style["fog"])
         p.end()
 
         return fog
@@ -399,15 +426,23 @@ class FogWindow(QWidget):
         if self.filter != "clear":
 
             fog = self._fog(base)
+            mask = self._soft_mask(w, h)
 
             # Cut the writing out of the fog.
             p = QPainter(fog)
             p.setCompositionMode(QPainter.CompositionMode_DestinationOut)
-            p.drawImage(0, 0, self._soft_mask(w, h))
+            p.drawImage(0, 0, mask)
+            p.end()
+
+            # Ink: the same strokes in a colour that contrasts with the fog.
+            p = QPainter(mask)
+            p.setCompositionMode(QPainter.CompositionMode_SourceIn)
+            p.fillRect(mask.rect(), self.style["ink"])
             p.end()
 
             p = QPainter(base)
             p.drawImage(0, 0, fog)
+            p.drawImage(0, 0, mask)
             p.end()
 
         painter = QPainter(self)
@@ -419,7 +454,7 @@ class FogWindow(QWidget):
         painter.drawImage(0, 0, base)
 
         if self.filter != "clear" and self.frame is None and not self.has_writing():
-            painter.setPen(HINT_COLOUR)
+            painter.setPen(self.style["hint"])
             font = painter.font()
             font.setPointSize(12)
             painter.setFont(font)
@@ -430,6 +465,11 @@ class FogWindow(QWidget):
             )
 
         painter.end()
+
+    def showEvent(self, event):
+        # Pick up changes made in Settings.
+        self.apply_settings()
+        super().showEvent(event)
 
     def hideEvent(self, event):
         # Leaving Home: free the camera for studios.
