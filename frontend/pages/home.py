@@ -47,6 +47,7 @@ from frontend.styles.theme import (
 from backend.paths import user_config_path
 from backend.routines import ActivityLog, RoutineStore, parse_time
 from backend.settings.user import display_name
+from backend.settings import gesture_settings
 from backend.app_info import APP_NAME
 
 
@@ -117,6 +118,37 @@ def _label(text, color=PRIMARY_TEXT, size=14, weight=400, extra=""):
 
 def _eyebrow(text, color=TEXT_MUTED):
     return _label(text.upper(), color, 11, 600, "letter-spacing: 1px;")
+
+
+def _segmented(options, current, on_pick, accessible):
+    """A small pill group like the Fog / Clear / Mono filters.
+    options: [(value, label, tooltip)]. Returns (frame, QButtonGroup)."""
+
+    frame = QFrame()
+    frame.setStyleSheet(f"QFrame {{ background: {OVERLAY_1}; border-radius: 10px; border: none; }}")
+    layout = QHBoxLayout(frame)
+    layout.setContentsMargins(3, 3, 3, 3)
+    layout.setSpacing(2)
+
+    group = QButtonGroup(frame)
+    for value, label, tip in options:
+        b = QPushButton(label)
+        b.setCheckable(True)
+        b.setChecked(value == current)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setToolTip(tip)
+        b.setAccessibleName(f"{accessible}: {tip}")
+        b.setProperty("choice", value)
+        b.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {SECONDARY_TEXT}; border: none;
+                border-radius: 8px; padding: 0 12px; min-height: 28px; font-size: 12px; }}
+            QPushButton:checked {{ background: {OVERLAY_2}; color: {PRIMARY_TEXT}; font-weight: 600; }}
+        """)
+        b.clicked.connect(lambda checked=False, v=value: on_pick(v))
+        group.addButton(b)
+        layout.addWidget(b)
+
+    return frame, group
 
 
 def _button(text, primary=False, quiet=False, accent_text=False):
@@ -313,6 +345,34 @@ class HomePage(QWidget):
         controls.addWidget(self.fog_status, 1)
         layout.addLayout(controls)
 
+        # Pen size and fog colour, right here (also in Settings > Your window).
+        pen_row = QHBoxLayout()
+        pen_row.setSpacing(8)
+
+        pen_row.addWidget(_label("Pen", SECONDARY_TEXT, 12))
+        self.pen_size, self.pen_group = _segmented(
+            [("thin", "Thin", "Thin pen"),
+             ("medium", "Medium", "Medium pen"),
+             ("thick", "Thick", "Thick pen")],
+            self.fog.stroke,
+            lambda v: self._set_window_option("fog_stroke", v),
+            "Pen size",
+        )
+        pen_row.addWidget(self.pen_size)
+
+        pen_row.addSpacing(10)
+        pen_row.addWidget(_label("Fog", SECONDARY_TEXT, 12))
+        self.fog_colour, self.fog_colour_group = _segmented(
+            [("white", "White", "White fog, dark ink"),
+             ("black", "Black", "Black fog, light ink")],
+            self.fog.fog_colour,
+            lambda v: self._set_window_option("fog_colour", v),
+            "Fog colour",
+        )
+        pen_row.addWidget(self.fog_colour)
+        pen_row.addStretch()
+        layout.addLayout(pen_row)
+
         self.fog.status_changed.connect(self.fog_status.setText)
         self.fog.camera_state_changed.connect(self._on_camera_state)
 
@@ -348,6 +408,22 @@ class HomePage(QWidget):
 
         self.main.addLayout(row)
         self._set_camera_pill(False)
+
+    def _set_window_option(self, key, value):
+        gesture_settings.save(key, value)
+        self.fog.apply_settings()
+
+    def _sync_window_options(self):
+        """Match the pills to the saved settings (they can change in Settings)."""
+        self.fog.apply_settings()
+        for group, value in ((self.pen_group, self.fog.stroke),
+                             (self.fog_colour_group, self.fog.fog_colour)):
+            for button in group.buttons():
+                button.setChecked(button.property("choice") == value)
+
+    def showEvent(self, event):
+        self._sync_window_options()
+        super().showEvent(event)
 
     def _toggle_camera(self):
         if self.fog.camera_running:
