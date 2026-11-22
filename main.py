@@ -94,6 +94,7 @@ from frontend.components.backdrop import BackdropWidget
 from backend.paths import APP_DIR
 from backend import app_log
 from backend.app_info import VERSION
+from frontend.components.update_banner import UpdateBanner, UpdateChecker
 from backend.app_info import APP_NAME
 
 
@@ -200,6 +201,13 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(
             self.title_bar
+        )
+
+        # "A new version is available" (hidden until a check finds one).
+        self.update_banner = UpdateBanner()
+
+        root_layout.addWidget(
+            self.update_banner
         )
 
         # =====================================================
@@ -474,6 +482,10 @@ class MainWindow(QMainWindow):
 
         self.settings_page.welcome_requested.connect(
             self.show_welcome
+        )
+
+        self.settings_page.update_check_requested.connect(
+            lambda: self.check_for_updates(force=True)
         )
 
         # =====================================================
@@ -1616,6 +1628,39 @@ class MainWindow(QMainWindow):
 
         # Ask about a new routine shortly after the app opens.
         QTimer.singleShot(1200, self._show_suggestion_popup)
+
+        # Look for a newer version (at most once a day, in the background).
+        QTimer.singleShot(5000, self.check_for_updates)
+
+    # =============================================================
+    # UPDATES
+    # =============================================================
+
+    def check_for_updates(self, force=False):
+        """Ask GitHub for a newer release off the UI thread."""
+
+        if getattr(self, "_update_thread", None) is not None:
+            return
+
+        self._update_force = force
+        self._update_thread = QThread(self)
+        self._update_checker = UpdateChecker(force=force)
+        self._update_checker.moveToThread(self._update_thread)
+        self._update_thread.started.connect(self._update_checker.run)
+        self._update_checker.found.connect(self._on_update_result)
+        self._update_checker.found.connect(self._update_thread.quit)
+        self._update_thread.finished.connect(self._update_finished)
+        self._update_thread.start()
+
+    def _update_finished(self):
+        self._update_thread = None
+
+    @Slot(object)
+    def _on_update_result(self, release):
+        if release:
+            self.update_banner.show_update(release)
+        if self._update_force:
+            self.settings_page.show_update_result(release)
 
     def _record(
         self,

@@ -77,6 +77,10 @@ class SettingsPage(StudioPage):
     # "Show welcome again" (About section).
     welcome_requested = Signal()
 
+    # "Check for updates now" (About section); the main window answers
+    # with show_update_result().
+    update_check_requested = Signal()
+
     def __init__(self, parent=None):
 
         super().__init__(
@@ -313,6 +317,50 @@ class SettingsPage(StudioPage):
             "opens a GitHub issue; attach the log if you can.",
             buttons,
         )
+
+        # Updates ------------------------------------------------------
+
+        self.update_auto = QCheckBox("Tell me when a new version is out")
+        self.update_auto.setChecked(SettingsManager().get_setting("update_check") is not False)
+        self.update_auto.toggled.connect(
+            lambda checked: SettingsManager().set_setting("update_check", bool(checked))
+        )
+
+        update_row = QHBoxLayout()
+        update_row.setSpacing(12)
+        update_row.addWidget(self.update_auto)
+        self.update_now = self._small_button("Check now", self._check_updates_now)
+        update_row.addWidget(self.update_now)
+        self.update_result = QLabel("")
+        self.update_result.setStyleSheet(
+            f"color: {SECONDARY_TEXT}; font-size: 13px; background: transparent;"
+        )
+        update_row.addWidget(self.update_result)
+        update_row.addStretch()
+
+        self._row(
+            "Updates",
+            f"{APP_NAME} checks GitHub for a new version once a day and shows a "
+            "note with a Download link. Nothing about you is sent.",
+            update_row,
+        )
+
+    def _check_updates_now(self):
+        self.update_now.setEnabled(False)
+        self.update_result.setText("Checking…")
+        self.update_check_requested.emit()
+
+    def show_update_result(self, release):
+        from backend.app_info import VERSION
+        self.update_now.setEnabled(True)
+        if release:
+            self.update_result.setText(
+                f"{APP_NAME} {release['version']} is available: use Download at the top."
+            )
+        else:
+            self.update_result.setText(
+                f"You're up to date ({VERSION}), or GitHub couldn't be reached."
+            )
 
     def _open_log(self):
         from backend.app_log import log_path
