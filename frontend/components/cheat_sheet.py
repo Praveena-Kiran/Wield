@@ -1,12 +1,21 @@
 """
 The "What can I do?" card: shown over any app by "Hey Wield, help" (or a
-button), listing what works right now. It never takes clicks or focus,
-and fades after a while; asking again closes it.
+button), listing what works right now. It never takes the keyboard focus
+from the app you're in. Close it with ✕, a click anywhere on it, by
+asking again, or just wait: it goes after a while.
 """
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 SHOW_MS = 20000
 COLUMNS = 3
@@ -20,7 +29,6 @@ class CheatSheet(QWidget):
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
-            | Qt.WindowType.WindowTransparentForInput
             | Qt.WindowType.WindowDoesNotAcceptFocus,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -37,7 +45,15 @@ class CheatSheet(QWidget):
                 border-radius: 24px;
             }
             QLabel { background: transparent; color: #F5F1EB; }
+            QPushButton#Close {
+                background: rgba(255, 255, 255, 0.08); color: #F5F1EB;
+                border: none; border-radius: 16px;
+                min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px;
+                font-size: 15px; font-weight: 700; padding: 0;
+            }
+            QPushButton#Close:hover { background: rgba(255, 148, 102, 0.35); }
         """)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         outer.addWidget(self.card)
         self.layout_ = QVBoxLayout(self.card)
         self.layout_.setContentsMargins(28, 22, 28, 20)
@@ -64,9 +80,19 @@ class CheatSheet(QWidget):
             elif item.layout() is not None:
                 _clear(item.layout())
 
+        top = QHBoxLayout()
         heading = QLabel(title)
         heading.setStyleSheet("font-size: 20px; font-weight: 700;")
-        self.layout_.addWidget(heading)
+        top.addWidget(heading, 1)
+        close = QPushButton("✕")
+        close.setObjectName("Close")
+        close.setToolTip("Close")
+        close.setAccessibleName("Close")
+        close.setCursor(Qt.CursorShape.PointingHandCursor)
+        close.clicked.connect(self.hide)
+        self.close_button = close
+        top.addWidget(close, 0, Qt.AlignTop)
+        self.layout_.addLayout(top)
 
         if not sections:
             empty = QLabel("Nothing is set up here yet. Add gestures or phrases in the studio.")
@@ -90,6 +116,10 @@ class CheatSheet(QWidget):
         self.show()
         self.raise_()
         self._timer.start(SHOW_MS)
+
+    def mousePressEvent(self, event):
+        # A click anywhere on the card closes it.
+        self.hide()
 
     def _place(self):
         screen = QGuiApplication.primaryScreen()

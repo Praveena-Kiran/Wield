@@ -1693,7 +1693,7 @@ class MainWindow(QMainWindow):
             notes.append(f"{worker.arm_gesture} wakes Wield · “Hey Wield, go to sleep” sends it to sleep")
         if not settings["voice_enabled"]:
             notes.append("Voice commands are off (Settings → Voice commands)")
-        notes.append("Say “Hey Wield, help” again to close")
+        notes.append("Click it or ✕ to close, or say “Hey Wield, help” again")
 
         self._cheat_sheet.toggle(f"What you can do · {title}", sections, "   ·   ".join(notes))
 

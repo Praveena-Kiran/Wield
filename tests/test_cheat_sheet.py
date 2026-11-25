@@ -62,6 +62,16 @@ class CheatSheetWidgetTests(unittest.TestCase):
             self.assertTrue(sheet.isVisible())
             sheet.toggle("What you can do", [], "")
             self.assertFalse(sheet.isVisible())
+
+            sheet.toggle("What you can do", [], "")
+            sheet.close_button.click()                      # the ✕ button
+            self.assertFalse(sheet.isVisible())
+
+            from PySide6.QtCore import QPoint, Qt
+            from PySide6.QtTest import QTest
+            sheet.toggle("What you can do", [], "")
+            QTest.mouseClick(sheet, Qt.LeftButton, pos=QPoint(40, 40))   # anywhere
+            self.assertFalse(sheet.isVisible())
         finally:
             sheet.deleteLater()
 
