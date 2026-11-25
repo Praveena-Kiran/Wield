@@ -16,7 +16,8 @@ NOTES = {
         "<b>Hands-free mode</b>: Wield watches in the background; ✋ or “Hey Wield, wake up” and your gestures work in any app.",
         "<b>Hand mouse</b>: “Hey Wield, mouse mode”, then point to move and pinch to click.",
         "<b>What can I do?</b>: “Hey Wield, help” shows every gesture and phrase on screen.",
-        "<b>A tidier Browse &amp; Media Studio</b>, and studios you can remove and bring back.",
+        "<b>Tidier studios</b> that open one section at a time, and studios you can remove and bring back.",
+        "<b>A proper installer</b> with a desktop icon, a Start-menu entry and an uninstaller.",
     ],
     "1.2.0": [
         "<b>Browse &amp; Media Studio</b>: scroll, videos, music, volume, tabs and windows by gesture or voice.",
