@@ -42,6 +42,7 @@ VK = {
     "down": 0x28, "media_next": 0xB0, "media_previous": 0xB1,
     "media_stop": 0xB2, "media_play_pause": 0xB3,
     "volume_mute": 0xAD, "volume_down": 0xAE, "volume_up": 0xAF,
+    "f11": 0x7A,
 }
 VK.update({chr(c).lower(): c for c in range(ord("A"), ord("Z") + 1)})
 VK.update({str(d): 0x30 + d for d in range(10)})
@@ -151,11 +152,23 @@ class WinApi:
 
         self._send([key(c, False) for c in codes] + [key(c, True) for c in reversed(codes)])
 
-    def send_wheel(self, amount):
+    def _wheel_event(self, amount):
         event = self.INPUT(type=self.INPUT_MOUSE)
         event.mi.mouseData = ctypes.c_uint32(int(amount)).value   # signed in a DWORD
         event.mi.dwFlags = self.MOUSEEVENTF_WHEEL
-        self._send([event])
+        return event
+
+    def send_wheel(self, amount, ctrl=False):
+        """Turn the wheel; with ctrl=True, Ctrl is held (zoom in most apps)."""
+        if not ctrl:
+            self._send([self._wheel_event(amount)])
+            return
+        down = self.INPUT(type=self.INPUT_KEYBOARD)
+        down.ki.wVk = VK["ctrl"]
+        up = self.INPUT(type=self.INPUT_KEYBOARD)
+        up.ki.wVk = VK["ctrl"]
+        up.ki.dwFlags = self.KEYEVENTF_KEYUP
+        self._send([down, self._wheel_event(amount), up])
 
     def lock_workstation(self):
         if not self.user32.LockWorkStation():
@@ -214,6 +227,12 @@ class DesktopInput:
 
     def press(self, keys):
         self.api.send_keys(key_codes(keys))
+
+    def zoom(self, steps):
+        """Zoom in (+) or out (-) with Ctrl + mouse wheel: browsers, PDFs, Word."""
+        steps = int(steps)
+        if steps:
+            self.api.send_wheel(steps * WHEEL_DELTA, ctrl=True)
 
     def volume(self, steps):
         """Press volume up (+) or down (-) this many times (about 2% each)."""

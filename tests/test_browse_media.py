@@ -28,8 +28,8 @@ class FakeWinApi:
     def send_keys(self, codes):
         self.keys.append(list(codes))
 
-    def send_wheel(self, amount):
-        self.wheel.append(amount)
+    def send_wheel(self, amount, ctrl=False):
+        self.wheel.append(("ctrl", amount) if ctrl else amount)
 
 
 class ForegroundGuardTests(unittest.TestCase):
@@ -254,6 +254,31 @@ class VolumeTests(unittest.TestCase):
         api = FakeWinApi()
         DesktopInput(api).volume(500)
         self.assertEqual(len(api.keys), 50)
+
+
+class ZoomAndPageTests(unittest.TestCase):
+
+    def test_zoom_is_ctrl_wheel_in_any_app(self):
+        from backend.automation.browse_media import BrowseMediaController
+        api = FakeWinApi("winword.exe")
+        c = BrowseMediaController(DesktopInput(api))
+        c.execute("zoom_in")
+        c.execute("zoom_out")
+        self.assertEqual(api.wheel, [("ctrl", WHEEL_DELTA), ("ctrl", -WHEEL_DELTA)])
+        self.assertEqual(api.keys, [])
+
+    def test_browser_only_page_keys(self):
+        from backend.automation.browse_media import BrowseMediaController, NotInBrowser
+        api = FakeWinApi("chrome.exe")
+        c = BrowseMediaController(DesktopInput(api))
+        for command in ("zoom_reset", "video_fullscreen", "page_back", "page_forward"):
+            c.execute(command)
+        self.assertEqual(api.keys, [[0x11, 0x30], [ord("F")], [0x12, 0x25], [0x12, 0x27]])
+        word = FakeWinApi("winword.exe")
+        for command in ("zoom_reset", "video_fullscreen", "page_back"):
+            with self.assertRaises(NotInBrowser):
+                BrowseMediaController(DesktopInput(word)).execute(command)
+        self.assertEqual(word.keys, [])
 
 
 class WindowsTests(unittest.TestCase):

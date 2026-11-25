@@ -35,6 +35,12 @@
         "🎤 switch app": "browse_app_switch",
         "🎤 next window": "browse_app_switch",
         "🎤 show desktop": "browse_desktop",
-        "🎤 lock computer": "browse_lock"
+        "🎤 lock computer": "browse_lock",
+        "🎤 zoom in": "browse_zoom_in",
+        "🎤 zoom out": "browse_zoom_out",
+        "🎤 reset zoom": "browse_zoom_reset",
+        "🎤 full screen": "browse_video_fullscreen",
+        "🎤 go back": "browse_page_back",
+        "🎤 go forward": "browse_page_forward"
     }
 }

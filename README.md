@@ -39,7 +39,12 @@ strict, slow or deliberate recognition should be.
 - **Swipes and moves.** Swipe left, right, up or down, or record your own movements such as a wave or a circle. Movements you draw with a finger (like a "0") are tracked from your fingertip.
 - **Voice commands.** Say "Hey Wield, next slide". Speech is recognised offline on your computer (a one-time 40 MB download in Settings); no audio is recorded or sent anywhere. Mix gestures, motions and voice freely: any of an action's triggers works.
 - **Feedback you can hear and see.** A soft chime when Wield starts listening and when it runs an action, and a small note on top of full-screen slideshows ("👍 → Next slide"). Both can be turned off.
-- **Browse & Media Studio.** Scroll any page by holding ✌️ and moving your hand up or down, play, pause and skip videos (YouTube keys, only ever sent to a browser), control music in any app with the media keys, and switch, reopen or close browser tabs (closing needs a one-second hold). Every gesture can be changed.
+- **Browse & Media Studio.** Control the whole computer from the sofa, by gesture, motion or voice, in five sections:
+  - *Scroll & zoom* (any app): hold ✌️ and move your hand to scroll, or say "scroll down"; zoom in and out.
+  - *Videos* (browser in front): play / pause, skip 5 or 10 s, full screen, with YouTube's keys that are only ever sent to a browser.
+  - *Music & volume* (any player, even in the background): play / pause, next / previous track, volume up / down / mute.
+  - *Browser tabs & pages*: next / previous / reopen tab, back / forward, and close a tab with a one-second held fist.
+  - *Windows*: switch to the last app, show the desktop, lock the computer.
 - **Studios.** Group actions for a task. Each event opens an app, file or website, presses a hotkey, controls PowerPoint or runs a flow, triggered by a click or a gesture.
 - **Routine learning.** Wield notices what you do around the same time on most days and offers to automate it. Nothing runs until you say yes.
 - **Accessibility settings.** Strict-to-forgiving sensitivity, hold-to-trigger, and an activation gesture so ordinary hand movement never triggers anything.
