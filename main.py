@@ -459,6 +459,8 @@ class MainWindow(QMainWindow):
         self._camera_claims.changed.connect(self._on_camera_claims)
         camera_claims.subscribe(self._camera_claims.changed.emit)
         self.settings_page.hands_free_changed.connect(self.set_hands_free)
+        self.settings_page.studios_restored.connect(self.home_page.refresh_studios)
+        self.home_page.studio_removed.connect(self._on_studio_removed)
         self._scroll_error_shown = False
         self._browse_restart = QTimer(self)
         self._browse_restart.setSingleShot(True)
@@ -1538,6 +1540,12 @@ class MainWindow(QMainWindow):
     # it sleeps again after a while without gestures. Any studio, the
     # camera on Home, or the gesture recorder borrows the webcam and gives
     # it back.
+
+    def _on_studio_removed(self, title):
+        print(f"🗑 Removed studio: {title}")
+        # A custom studio that was running stops with it.
+        if self.gesture_context == "custom" and self.gesture_studio_name == title:
+            self.stop_gesture_worker()
 
     def set_hands_free(self, on):
         if on:

@@ -80,6 +80,9 @@ class SettingsPage(StudioPage):
     # Hands-free mode switched on or off.
     hands_free_changed = Signal(bool)
 
+    # Optional studios brought back (Home should show them).
+    studios_restored = Signal()
+
     # "Check for updates now" (About section); the main window answers
     # with show_update_result().
     update_check_requested = Signal()
@@ -252,6 +255,8 @@ class SettingsPage(StudioPage):
         )
 
         self._build_voice()
+
+        self._build_studios()
 
         self._section("Your data")
 
@@ -547,6 +552,53 @@ class SettingsPage(StudioPage):
             "Status: Hands-free mode on. Make your activation gesture to wake Wield."
             if checked else "Status: Hands-free mode off."
         )
+
+    # -----------------------------------------------------
+    # STUDIOS (bring back optional ones)
+    # -----------------------------------------------------
+
+    def _build_studios(self):
+
+        from backend.studios import catalog
+
+        self._section("Studios")
+
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        self.restore_studios = self._small_button(
+            "Bring them back", self._restore_studios
+        )
+        row.addWidget(self.restore_studios)
+        self.studios_note = QLabel("")
+        self.studios_note.setStyleSheet(
+            f"color: {SECONDARY_TEXT}; font-size: 13px; background: transparent;"
+        )
+        row.addWidget(self.studios_note)
+        row.addStretch()
+
+        self._row(
+            "Studios that come with Wield",
+            f"{', '.join(catalog.CORE)} are always there. The others (like "
+            "Coding and Gaming) can be removed on Home with ✕ and brought back here.",
+            row,
+        )
+        self._refresh_studios_note()
+
+    def _refresh_studios_note(self):
+        from backend.studios import catalog
+        missing = catalog.missing_optional()
+        self.restore_studios.setEnabled(bool(missing))
+        self.studios_note.setText(
+            f"Removed: {', '.join(missing)}" if missing else "All of them are on Home."
+        )
+
+    def _restore_studios(self):
+        from backend.studios import catalog
+        restored = catalog.restore_optional()
+        self._refresh_studios_note()
+        if restored:
+            self.status_label.setText(f"Status: Brought back {', '.join(restored)}.")
+            self.studios_restored.emit()
 
     # -----------------------------------------------------
     # YOUR WINDOW (the fog on Home)
@@ -853,6 +905,8 @@ class SettingsPage(StudioPage):
             subprocess.Popen(["xdg-open", path])
 
     def showEvent(self, event):
-        # Pick up gestures recorded since the page was built.
+        # Pick up gestures recorded since the page was built, and studios
+        # removed on Home since.
         self._fill_gestures()
+        self._refresh_studios_note()
         super().showEvent(event)

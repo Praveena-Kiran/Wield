@@ -1473,9 +1473,11 @@ class CustomPage(QWidget):
             "type"
         )
 
+        from backend.studios import catalog
+
         if (
-            studio_type is not None
-            and studio_type != "custom"
+            (studio_type is not None and studio_type != "custom")
+            or catalog.is_core(self.studio_name)
         ):
 
             QMessageBox.warning(
@@ -1494,6 +1496,9 @@ class CustomPage(QWidget):
             self,
             "Delete Studio",
             (
+                f"Remove '{self.studio_name}'?\n\n"
+                "You can bring it back any time in Settings → Studios."
+                if catalog.is_optional(self.studio_name) else
                 f"Are you sure you want to delete "
                 f"'{self.studio_name}'?\n\n"
                 "This will permanently remove this custom studio."

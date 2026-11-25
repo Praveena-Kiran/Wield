@@ -49,6 +49,7 @@ from backend.routines import ActivityLog, RoutineStore, parse_time
 from backend.settings.user import display_name
 from backend.settings import gesture_settings
 from backend.app_info import APP_NAME
+from backend.studios import catalog
 
 
 # Built-in studios and what they actually do. Shown instead of the saved
@@ -198,6 +199,9 @@ class HomePage(QWidget):
     studio_selected = Signal(str)
     create_studio_requested = Signal()
     launch_all_events_requested = Signal(str)
+
+    # A studio was removed from the list (title).
+    studio_removed = Signal(str)
     launch_specific_event_requested = Signal(str, dict)
     history_requested = Signal()
 
@@ -585,7 +589,14 @@ class HomePage(QWidget):
 
         last_used = self._last_used()
 
-        for studio in self.load_studios():
+        # The main studios first (in their usual order), then the rest.
+        core = [c.lower() for c in catalog.CORE]
+        studios = sorted(
+            self.load_studios(),
+            key=lambda st: core.index(st["title"].lower()) if st["title"].lower() in core else len(core),
+        )
+
+        for studio in studios:
             if studio["title"] in HIDE_WHEN_EMPTY and not studio.get("events"):
                 continue
             self.studios_layout.addWidget(self._studio_row(studio, last_used.get(studio["title"])))
@@ -644,7 +655,45 @@ class HomePage(QWidget):
         open_button.clicked.connect(lambda checked=False, t=title: self.studio_selected.emit(t))
         layout.addWidget(open_button)
 
+        # The main studios always stay; the rest can be removed.
+        if catalog.removable(title):
+            remove = _button("✕", quiet=True)
+            remove.setFixedWidth(34)
+            remove.setToolTip(f"Remove {title}")
+            remove.setAccessibleName(f"Remove {title}")
+            remove.clicked.connect(lambda checked=False, t=title: self.remove_studio(t))
+            layout.addWidget(remove)
+
         return row
+
+    def remove_studio(self, title, confirm=True):
+        """Remove a studio from the list (asks first)."""
+
+        from PySide6.QtWidgets import QMessageBox
+
+        if not catalog.removable(title):
+            return False
+
+        if confirm:
+            if catalog.is_optional(title):
+                text = (f"Remove {title}?\n\nYou can bring it back any time in "
+                        "Settings → Studios.")
+            else:
+                text = (f"Delete {title} and its events?\n\nThis studio is yours, "
+                        "so it can't be brought back.")
+            answer = QMessageBox.question(
+                self, "Remove studio", text,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+
+        if not catalog.remove(title):
+            return False
+
+        self.refresh_studios()
+        self.studio_removed.emit(title)
+        return True
 
     # -----------------------------------------------------
     # SCROLLING (sidebar: Home = top, Studios = the list)
