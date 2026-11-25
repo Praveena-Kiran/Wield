@@ -96,11 +96,18 @@ class BrowsePage(StudioPage):
                 border: 1px solid {BORDER}; background: {SURFACE};
             }}
             QCheckBox::indicator:checked {{ background: {PRIMARY}; border: 1px solid {PRIMARY}; }}
+            QFrame#Card QLabel#SectionBadge {{
+                background: {OVERLAY_2}; color: {PRIMARY}; border-radius: 19px;
+                font-size: 17px; font-weight: 700;
+            }}
         """)
 
+        self.editors = {}
+
         self.content_layout.addWidget(self._build_session())
-        self.content_layout.addWidget(self._build_scrolling())
-        self.content_layout.addWidget(self._build_controls())
+        for section in browse_media.SECTIONS:
+            self.content_layout.addWidget(self._build_section(*section))
+        self.content_layout.addWidget(self._record_link(), 0, Qt.AlignLeft)
         self.content_layout.addStretch()
 
         self.status_label.hide()
@@ -159,26 +166,19 @@ class BrowsePage(StudioPage):
         layout.addLayout(row)
 
         layout.addWidget(self._label(
-            "Start, then switch to your browser, a PDF or Word. Wield keeps "
-            "watching in the background; it only types browser shortcuts "
-            "when a browser (Chrome, Edge, Firefox or Brave) is in front.",
+            "Press Start, then go to your browser, PDF or document and use "
+            "any gesture, motion or phrase below. Every one can be changed: "
+            "+ to add, ✕ to remove.",
             TEXT_MUTED, 12,
         ))
         return frame
 
-    def _build_scrolling(self):
-        frame, layout = self._card()
-        layout.addWidget(self._label("Scrolling", PRIMARY_TEXT, 16, 700))
-        layout.addWidget(self._label(
-            "Hold your scroll pose (✌️ by default) and move your hand up or "
-            "down from where you started: above scrolls up, below scrolls "
-            "down, back to the middle stops. Keep holding to keep scrolling.",
-            SECONDARY_TEXT, 13,
-        ))
+    def _scroll_options(self):
+        """Speed pills and the hand-height switch (Scroll section)."""
 
-        speeds = QHBoxLayout()
-        speeds.setSpacing(8)
-        speeds.addWidget(self._label("Speed", SECONDARY_TEXT, 12))
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self._label("Speed", SECONDARY_TEXT, 12))
         self.speed_group = QButtonGroup(self)
         for value in gesture_settings.SCROLL_SPEEDS:
             button = QPushButton(value.title())
@@ -196,35 +196,54 @@ class BrowsePage(StudioPage):
             """)
             button.clicked.connect(lambda checked=False, v=value: self._save("browse_scroll_speed", v))
             self.speed_group.addButton(button)
-            speeds.addWidget(button)
-        speeds.addSpacing(16)
+            row.addWidget(button)
+        row.addSpacing(16)
 
-        self.by_height = QCheckBox("Hand height sets the speed (further = faster)")
+        self.by_height = QCheckBox("Hold-and-move: further from the start = faster")
         self.by_height.setChecked(self.settings["browse_scroll_by_height"])
         self.by_height.toggled.connect(lambda on: self._save("browse_scroll_by_height", bool(on)))
-        speeds.addWidget(self.by_height)
-        speeds.addStretch()
-        layout.addLayout(speeds)
-        return frame
+        row.addWidget(self.by_height)
+        row.addStretch()
+        return row
 
-    def _build_controls(self):
+    def _build_section(self, key, title, icon, where, actions):
+        """One card per kind of control: its title, where it works, its triggers."""
+
         frame, layout = self._card()
-        layout.addWidget(self._label("Your gestures", PRIMARY_TEXT, 16, 700))
-        layout.addWidget(self._label(
-            "Change any of them: add a gesture, a motion or a voice phrase, or "
-            "remove one with ✕.", TEXT_MUTED, 12,
-        ))
+        frame.setObjectName("Card")
+        frame.setProperty("section", key)
+        layout.setSpacing(12)
+
+        head = QHBoxLayout()
+        head.setSpacing(12)
+        badge = QLabel(icon)
+        badge.setObjectName("SectionBadge")
+        badge.setFixedSize(38, 38)
+        badge.setAlignment(Qt.AlignCenter)
+        head.addWidget(badge, 0, Qt.AlignTop)
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        text.addWidget(self._label(title, PRIMARY_TEXT, 16, 700))
+        text.addWidget(self._label(where, SECONDARY_TEXT, 12))
+        head.addLayout(text, 1)
+        layout.addLayout(head)
+
+        if key == "scroll":
+            layout.addLayout(self._scroll_options())
 
         names = _recorded_names
-        self.editor = ActionTriggerEditor(
+        editor = ActionTriggerEditor(
             self.profile,
-            list(browse_media.ACTIONS),
+            list(actions),
             custom_gestures=lambda: names()[0],
             custom_motions=lambda: names()[1],
         )
-        self.editor.changed.connect(self.bindings_changed.emit)
-        layout.addWidget(self.editor)
+        editor.changed.connect(lambda k=key: self._on_triggers_changed(k))
+        self.editors[key] = editor
+        layout.addWidget(editor)
+        return frame
 
+    def _record_link(self):
         record = QPushButton("Record your own gesture or motion in Gesture Studio  →")
         record.setCursor(Qt.PointingHandCursor)
         record.setStyleSheet(f"""
@@ -233,8 +252,15 @@ class BrowsePage(StudioPage):
             QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
         """)
         record.clicked.connect(self.open_gesture_studio.emit)
-        layout.addWidget(record, 0, Qt.AlignLeft)
-        return frame
+        return record
+
+    def _on_triggers_changed(self, key):
+        # A trigger can move between sections (e.g. 👍 from videos to
+        # music): show the change everywhere, then reload the camera.
+        for other, editor in self.editors.items():
+            if other != key:
+                editor.refresh()
+        self.bindings_changed.emit()
 
     # ---------------------------------------------------------
     # State
@@ -242,7 +268,8 @@ class BrowsePage(StudioPage):
 
     def refresh_bindings(self):
         self.profile.load(browse_media.PROFILE_NAME)
-        self.editor.refresh()
+        for editor in self.editors.values():
+            editor.refresh()
 
     def _save(self, key, value):
         gesture_settings.save(key, value)

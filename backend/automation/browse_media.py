@@ -46,6 +46,23 @@ ACTIONS = [
     "browse_tab_previous",
 ]
 
+# How the studio groups its actions: (key, title, icon, where it works, actions).
+SECTIONS = [
+    ("scroll", "Scroll", "↕",
+     "Any app: a web page, a PDF, Word. Scrolls what's under your mouse pointer.",
+     [SCROLL, "browse_scroll_up", "browse_scroll_down"]),
+    ("video", "Videos", "▶",
+     "YouTube and most video sites, in the browser in front.",
+     ["browse_video_play_pause", "browse_video_forward", "browse_video_back",
+      "browse_video_forward_5", "browse_video_back_5"]),
+    ("music", "Music", "♫",
+     "Spotify, VLC, a video in a tab: any player, even in the background.",
+     ["browse_media_play_pause", "browse_media_next", "browse_media_previous"]),
+    ("tabs", "Browser tabs", "⧉",
+     "Chrome, Edge, Firefox or Brave in front. Closing needs a one-second hold.",
+     ["browse_tab_close", "browse_tab_reopen", "browse_tab_next", "browse_tab_previous"]),
+]
+
 PROFILE_ACTIONS = {
     SCROLL: ("Scroll (hold and move your hand)", "Scroll", "hold"),
     "browse_scroll_up": ("Scroll up", "Wheel", "scroll_up"),
