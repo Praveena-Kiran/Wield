@@ -186,6 +186,59 @@ class VideoAndMediaTests(unittest.TestCase):
         self.assertEqual(api.keys, [[VK["k"]], [0xB0]])
 
 
+class ScrollStepTests(unittest.TestCase):
+
+    def test_scroll_up_and_down_work_in_any_app(self):
+        from backend.automation.browse_media import BrowseMediaController
+        for app in ("winword.exe", "acrord32.exe", "chrome.exe"):
+            api = FakeWinApi(app)
+            c = BrowseMediaController(DesktopInput(api), speed="medium")
+            c.execute("scroll_up")
+            c.execute("scroll_down")
+            self.assertEqual(api.wheel, [5 * WHEEL_DELTA, -5 * WHEEL_DELTA], app)
+            self.assertEqual(api.keys, [])
+
+    def test_speed_sets_how_far(self):
+        from backend.automation.browse_media import BrowseMediaController
+        api = FakeWinApi()
+        BrowseMediaController(DesktopInput(api), speed="slow").execute("scroll_down")
+        BrowseMediaController(DesktopInput(api), speed="fast").execute("scroll_down")
+        self.assertLess(abs(api.wheel[0]), abs(api.wheel[1]))
+
+    def test_voice_motion_and_pose_defaults(self):
+        import json
+        import os
+        from backend.paths import DEFAULT_CONFIG_DIR
+        with open(os.path.join(DEFAULT_CONFIG_DIR, "profiles", "browse.json"), encoding="utf-8") as f:
+            m = json.load(f)["gesture_map"]
+        self.assertEqual(m["🎤 scroll down"], "browse_scroll_down")
+        self.assertEqual(m["🎤 scroll up"], "browse_scroll_up")
+        self.assertEqual(m["Swipe down"], "browse_scroll_down")
+        self.assertEqual(m["Swipe up"], "browse_scroll_up")
+
+    def test_older_profiles_get_the_new_defaults(self):
+        from backend.automation.browse_media import add_missing_defaults
+
+        class FakeProfile:
+            def __init__(self):
+                self.map = {"✌️ Peace": "browse_scroll", "Swipe up": "browse_tab_next"}
+                self.saved = False
+
+            def get_gesture_map(self):
+                return self.map
+
+            def save_profile(self):
+                self.saved = True
+
+        p = FakeProfile()
+        added = add_missing_defaults(p)
+        self.assertEqual(p.map["🎤 scroll down"], "browse_scroll_down")
+        self.assertEqual(p.map["Swipe up"], "browse_tab_next")     # the user's choice kept
+        self.assertNotIn("Swipe up", added)
+        self.assertTrue(p.saved)
+        self.assertEqual(add_missing_defaults(p), [])               # once only
+
+
 class TabTests(unittest.TestCase):
 
     def test_tab_shortcuts_in_a_browser(self):

@@ -201,7 +201,7 @@ class FlowManager:
             # Scrolling happens live while the pose is held (gesture worker).
             pass
 
-        elif action in ("Browser", "Media"):
+        elif action in ("Browser", "Media", "Wheel"):
             self.browse_media.execute(value)
 
         else:

@@ -79,6 +79,8 @@ class BrowsePage(StudioPage):
         self.listening = False
         self.profile = ProfileManager()
         self.profile.load(browse_media.PROFILE_NAME)
+        # Profiles saved before an action existed get its default triggers.
+        browse_media.add_missing_defaults(self.profile)
         self.settings = gesture_settings.load()
 
         self.setStyleSheet(self.styleSheet() + f"""

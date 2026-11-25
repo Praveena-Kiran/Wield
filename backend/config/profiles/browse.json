@@ -2,6 +2,12 @@
     "name": "Browse & Media",
     "gesture_map": {
         "✌️ Peace": "browse_scroll",
+        "Swipe up": "browse_scroll_up",
+        "Swipe down": "browse_scroll_down",
+        "🎤 scroll up": "browse_scroll_up",
+        "🎤 scroll down": "browse_scroll_down",
+        "🎤 page up": "browse_scroll_up",
+        "🎤 page down": "browse_scroll_down",
         "👍 Thumbs Up": "browse_video_play_pause",
         "Swipe right": "browse_video_forward",
         "Swipe left": "browse_video_back",
