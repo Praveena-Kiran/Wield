@@ -427,7 +427,7 @@ class SettingsPage(StudioPage):
     def _on_name(self):
         from backend.settings.user import set_display_name
         set_display_name(self.name_input.text())
-        self.status_label.setText("Status: Saved.")
+        self.notify("Saved.")
         self.name_changed.emit()
 
     # -----------------------------------------------------
@@ -552,9 +552,9 @@ class SettingsPage(StudioPage):
     def _on_hands_free(self, checked):
         self._save("hands_free", bool(checked))
         self.hands_free_changed.emit(bool(checked))
-        self.status_label.setText(
-            "Status: Hands-free mode on. Make your activation gesture to wake Wield."
-            if checked else "Status: Hands-free mode off."
+        self.notify(
+            "Hands-free mode on. Make your activation gesture to wake Wield."
+            if checked else "Hands-free mode off."
         )
 
     # -----------------------------------------------------
@@ -601,7 +601,7 @@ class SettingsPage(StudioPage):
         restored = catalog.restore_optional()
         self._refresh_studios_note()
         if restored:
-            self.status_label.setText(f"Status: Brought back {', '.join(restored)}.")
+            self.notify(f"Brought back {', '.join(restored)}.")
             self.studios_restored.emit()
 
     # -----------------------------------------------------
@@ -680,7 +680,7 @@ class SettingsPage(StudioPage):
     def _on_theme(self, name):
         SettingsManager().set_setting(theme_module.SETTING_KEY, name)
         self._show_restart(name != theme_module.THEME_NAME)
-        self.status_label.setText(f"Status: {theme_module.THEMES[name]['label']} theme saved.")
+        self.notify(f"{theme_module.THEMES[name]['label']} theme saved.")
 
     # -----------------------------------------------------
     # LAYOUT HELPERS
@@ -884,9 +884,9 @@ class SettingsPage(StudioPage):
         gesture_settings.save(key, value)
         self.settings[key] = value
         if key.startswith("fog_"):
-            self.status_label.setText("Status: Saved. You'll see it on your window on Home.")
+            self.notify("Saved. You'll see it on your window on Home.")
         else:
-            self.status_label.setText("Status: Saved. Applies next time a studio starts listening.")
+            self.notify("Saved. Applies next time a studio starts listening.")
 
     def _on_sensitivity(self, value):
         self._save("sensitivity", int(value))

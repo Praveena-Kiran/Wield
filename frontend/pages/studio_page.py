@@ -144,3 +144,12 @@ class StudioPage(QWidget):
         """)
 
         main.addWidget(self.status_label)
+        # Messages pop up as toasts now (notify); the label stays for the
+        # last message's text but isn't shown.
+        self.status_label.hide()
+
+    def notify(self, text, kind="success"):
+        """Show a short message at the bottom of the window."""
+        from frontend.components.toast import toast
+        self.status_label.setText(text)
+        toast(self, text, kind)

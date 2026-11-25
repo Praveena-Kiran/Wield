@@ -252,10 +252,12 @@ class PresentationPage(StudioPage):
 
         self.listening = False
 
+        # Same order as Browse & Media: start and camera first, then what
+        # each action does, then the extras in a section that opens.
+        self.content_layout.addWidget(self._build_session())
         self.content_layout.addWidget(self._build_controls())
         self.content_layout.addWidget(self._build_more())
         self.content_layout.addStretch(1)
-        self.content_layout.addWidget(self._build_session())
 
         # The base page's "Status: Ready" footer duplicates the status card.
         self.status_label.hide()
@@ -311,62 +313,31 @@ class PresentationPage(StudioPage):
             row.phrase.textChanged.connect(lambda _t, a=action: self._on_phrase_typed(a))
             row.phrase.editingFinished.connect(lambda a=action: self._on_phrase_done(a))
 
-        more = QPushButton("More gestures, motions and the activation gesture  \u2193")
-        more.setCursor(Qt.CursorShape.PointingHandCursor)
-        more.setToolTip("Several gestures or phrases per action, and the activation gesture")
-        more.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; color: {PRIMARY};
-                font-size: 12px; font-weight: 600; text-align: left; padding: 4px 2px;
-            }}
-            QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
-        """)
-        more.clicked.connect(lambda: self.show_more(True))
-        self.more_link = more
-        layout.addWidget(more, 0, Qt.AlignmentFlag.AlignLeft)
         return frame
 
     def _build_more(self):
         """
         Every trigger for every presentation action (several gestures,
-        motions or phrases each) and the activation gesture. This used to
-        live in Gesture Studio; presenters now set it all up here.
+        motions or phrases each) and the activation gesture, in a section
+        that opens like Browse & Media's.
         """
-        frame, layout = self._card()
-        frame.setObjectName("Card")
-        layout.setContentsMargins(20, 18, 20, 16)
-        layout.setSpacing(10)
+        from frontend.components.collapsible import CollapsibleSection
+        from frontend.components.trigger_editor import ActionTriggerEditor
 
-        top = QHBoxLayout()
-        text = QVBoxLayout()
-        text.setSpacing(2)
-        text.addWidget(self._label("More gestures and motions", PRIMARY_TEXT, 16, 700))
-        text.addWidget(self._label(
+        section = CollapsibleSection("More gestures", "＋", name_width=170)
+        section.head.setAccessibleName("More gestures, motions and the activation gesture: show or hide")
+        layout = section.body_layout
+        layout.addWidget(self._label(
             "Give an action extra gestures, motions or phrases, and choose the "
             "activation gesture.", TEXT_MUTED, 12
         ))
-        top.addLayout(text, 1)
-
-        hide = QPushButton("Hide")
-        hide.setCursor(Qt.CursorShape.PointingHandCursor)
-        hide.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; color: {SECONDARY_TEXT};
-                font-size: 12px; font-weight: 600; padding: 4px 8px;
-            }}
-            QPushButton:hover {{ color: {PRIMARY_TEXT}; }}
-        """)
-        hide.clicked.connect(lambda: self.show_more(False))
-        top.addWidget(hide, 0, Qt.AlignmentFlag.AlignTop)
-        layout.addLayout(top)
-
-        from frontend.components.trigger_editor import ActionTriggerEditor
 
         self.more_editor = ActionTriggerEditor(
             self.profile,
             list(ACTIONS) + ["ACTIVATE"],
             custom_gestures=lambda: _recorded_names()[0],
             custom_motions=lambda: _recorded_names()[1],
+            compact=True,
         )
         self.more_editor.changed.connect(self._on_more_changed)
         layout.addWidget(self.more_editor)
@@ -383,15 +354,25 @@ class PresentationPage(StudioPage):
         record.clicked.connect(self.open_gesture_studio.emit)
         layout.addWidget(record, 0, Qt.AlignmentFlag.AlignLeft)
 
-        self.more_card = frame
-        frame.hide()
-        return frame
+        section.toggled.connect(lambda open_: open_ and self.more_editor.refresh())
+        self.more_card = section
+        self._update_more_summary()
+        return section
 
     def show_more(self, visible=True):
-        self.more_card.setVisible(visible)
-        self.more_link.setVisible(not visible)
-        if visible:
-            self.more_editor.refresh()
+        self.more_card.set_open(visible)
+
+    def _update_more_summary(self):
+        if not hasattr(self, "more_card"):
+            return
+        gesture_map = self.profile.get_gesture_map()
+        extras = sum(b["more_gestures"] + b["more_phrases"]
+                     for b in (binding(gesture_map, a) for a in ACTIONS))
+        activate = next((t for t, a in gesture_map.items() if a == "ACTIVATE"), None)
+        parts = [f"Activation: {activate}" if activate else "No activation gesture"]
+        parts.append(f"{extras} extra trigger" + ("" if extras == 1 else "s") if extras
+                     else "No extra triggers yet")
+        self.more_card.set_summary("  ·  ".join(parts))
 
     def _on_more_changed(self):
         # The editor saved the profile; show it in the rows and reload the
@@ -574,6 +555,7 @@ class PresentationPage(StudioPage):
             self.voice_note.setVisible(not settings["voice_enabled"])
             if refresh_editor and hasattr(self, "more_editor"):
                 self.more_editor.refresh()
+            self._update_more_summary()
         finally:
             self._loading = False
 

@@ -66,9 +66,9 @@ class CodingPage(StudioPage):
         try:
             self.flow_manager.save_flow_items(FLOW, items, name="Coding Flow")
             _show_on_home("Coding Studio", [item["label"] for item in items])
-            self.status_label.setText("Status: Saved.")
+            self.notify("Saved.")
         except OSError as e:
-            self.status_label.setText(f"Status: Couldn't save ({e}).")
+            self.notify(f"Couldn't save ({e}).", "error")
 
     def _launch_workspace(self):
         return self.launch_list.launch()

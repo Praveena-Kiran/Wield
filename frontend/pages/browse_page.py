@@ -11,7 +11,6 @@ Word or a PDF, because that's where the gestures are used.
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QSizePolicy,
     QWidget,
     QCheckBox,
     QFrame,
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
 from backend.automation import browse_media
 from backend.profile_manager import ProfileManager
 from backend.settings import gesture_settings
+from frontend.components.collapsible import Accordion, CollapsibleSection
 from frontend.components.trigger_editor import ActionTriggerEditor
 from frontend.pages.studio_page import StudioPage
 from frontend.styles.theme import (
@@ -101,24 +101,12 @@ class BrowsePage(StudioPage):
                 border: 1px solid {BORDER}; background: {SURFACE};
             }}
             QCheckBox::indicator:checked {{ background: {PRIMARY}; border: 1px solid {PRIMARY}; }}
-            QFrame#Section {{
-                background-color: {SURFACE};
-                border: 1px solid {BORDER};
-                border-radius: 16px;
-            }}
-            QFrame#Section[open="true"] {{ border: 1px solid {PRIMARY}; }}
-            QFrame#Section QLabel {{ background: transparent; border: none; }}
-            QWidget#SectionBody {{ background: transparent; }}
-            QPushButton#SectionHead {{
-                background: transparent; border: none; border-radius: 16px; text-align: left;
-            }}
-            QPushButton#SectionHead:hover {{ background: {OVERLAY_1}; }}
             QPushButton#SettingsLink {{
                 background: transparent; border: none; color: {SECONDARY_TEXT};
                 font-size: 12px; font-weight: 600; padding: 2px 0;
             }}
             QPushButton#SettingsLink:hover {{ color: {PRIMARY}; }}
-            QFrame#Section QLabel#SectionBadge, QFrame#Card QLabel#SectionBadge {{
+            QFrame#Card QLabel#SectionBadge {{
                 background: {OVERLAY_2}; color: {PRIMARY}; border-radius: 19px;
                 font-size: 17px; font-weight: 700;
             }}
@@ -126,6 +114,7 @@ class BrowsePage(StudioPage):
 
         self.editors = {}
         self.sections = {}
+        self.accordion = Accordion()
 
         self.content_layout.addWidget(self._build_session())
         for section in browse_media.SECTIONS:
@@ -235,52 +224,9 @@ class BrowsePage(StudioPage):
         Only one section is open at a time.
         """
 
-        frame = QFrame()
-        frame.setObjectName("Section")
-        frame.setProperty("section", key)
-        outer = QVBoxLayout(frame)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-
-        # Header: the whole line is the button.
-        head = QPushButton()
-        head.setObjectName("SectionHead")
-        head.setCursor(Qt.PointingHandCursor)
-        head.setAccessibleName(f"{title}: show or hide")
-        head.setMinimumHeight(64)
-        line = QHBoxLayout(head)
-        line.setContentsMargins(16, 10, 18, 10)
-        line.setSpacing(14)
-
-        badge = QLabel(icon)
-        badge.setObjectName("SectionBadge")
-        badge.setFixedSize(38, 38)
-        badge.setAlignment(Qt.AlignCenter)
-        line.addWidget(badge)
-
-        name = QLabel(title)
-        name.setFixedWidth(190)
-        name.setStyleSheet(f"color: {PRIMARY_TEXT}; font-size: 15px; font-weight: 700;")
-        line.addWidget(name)
-
-        summary = QLabel()
-        summary.setStyleSheet(f"color: {SECONDARY_TEXT}; font-size: 12px;")
-        summary.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
-        line.addWidget(summary, 1)
-
-        chevron = QLabel("▸")
-        chevron.setStyleSheet(f"color: {SECONDARY_TEXT}; font-size: 14px;")
-        line.addWidget(chevron)
-        for label in (badge, name, summary, chevron):
-            label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        outer.addWidget(head)
-
-        # Body: where it works, (scroll settings), the actions.
-        body = QWidget()
-        body.setObjectName("SectionBody")
-        inner = QVBoxLayout(body)
-        inner.setContentsMargins(68, 0, 18, 14)
-        inner.setSpacing(8)
+        section = CollapsibleSection(title, icon)
+        section.setProperty("section", key)
+        inner = section.body_layout
         inner.addWidget(self._label(where, TEXT_MUTED, 12))
 
         if key == "scroll":
@@ -307,30 +253,20 @@ class BrowsePage(StudioPage):
         editor.changed.connect(lambda k=key: self._on_triggers_changed(k))
         self.editors[key] = editor
         inner.addWidget(editor)
-        body.hide()
-        outer.addWidget(body)
 
-        self.sections[key] = (frame, body, chevron, summary, actions)
-        head.clicked.connect(lambda checked=False, k=key: self.toggle_section(k))
+        self.accordion.add(key, section)
+        self.sections[key] = (section, section.body, section.chevron, section.summary, actions)
         self._update_summary(key)
-        return frame
+        return section
 
     def toggle_section(self, key):
         """Open a section (closing the others), or close it if it's open."""
-        opening = not self.sections[key][1].isVisible()
-        for other, (frame, body, chevron, _summary, _actions) in self.sections.items():
-            open_now = opening and other == key
-            body.setVisible(open_now)
-            chevron.setText("▾" if open_now else "▸")
-            frame.setProperty("open", open_now)
-            frame.style().unpolish(frame)
-            frame.style().polish(frame)
+        self.accordion.toggle(key)
 
     def _update_summary(self, key):
-        _frame, _body, _chevron, summary, actions = self.sections[key]
+        actions = self.sections[key][4]
         text = browse_media.section_summary(self.profile.get_gesture_map(), actions)
-        summary.setText(text)
-        summary.setToolTip(text)
+        self.accordion.sections[key].set_summary(text)
 
     def _record_link(self):
         record = QPushButton("Record your own gesture or motion in Gesture Studio  →")

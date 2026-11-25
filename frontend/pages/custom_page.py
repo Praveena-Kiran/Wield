@@ -1612,12 +1612,9 @@ class CustomPage(QWidget):
 
         if not with_gestures:
 
-            QMessageBox.information(
-                self,
-                "No Gestures Yet",
-                "Edit an event and choose a gesture trigger for it, "
-                "then start gesture control."
-            )
+            from frontend.components.toast import toast
+            toast(self, "No gestures yet. Edit an event and choose a gesture "
+                        "for it, then start gesture control.", "info")
 
             return
 

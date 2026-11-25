@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
 )
 
 from frontend.pages.studio_page import StudioPage
+from frontend.components.collapsible import Accordion, CollapsibleSection
+from frontend.components.toast import toast
 from frontend.components.gesture_recorder_dialog import GestureRecorderDialog
 from frontend.components.gesture_test_dialog import GestureTestDialog
 from frontend.components.motion_recorder_dialog import MotionRecorderDialog
@@ -99,18 +101,27 @@ class GesturePage(StudioPage):
         # Intro
         # -----------------------------------------
 
+        # Like the studios: a bar at the top with what you can do now,
+        # then sections that open.
+        bar = QFrame()
+        bar.setObjectName("Card")
+        bar.setStyleSheet(f"""
+            QFrame#Card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 16px; }}
+            QFrame#Card QLabel {{ background: transparent; border: none; }}
+        """)
+        bar_layout = QHBoxLayout(bar)
+        bar_layout.setContentsMargins(20, 16, 20, 16)
+        bar_layout.setSpacing(12)
+
+        text = QVBoxLayout()
+        text.setSpacing(4)
         intro = QLabel(
-            "Record poses and movements that are comfortable for you, and "
-            "test them with the camera. Then use them anywhere: in your "
-            "studios' events, or for your slides in Presentation Studio."
+            "Record poses and movements that are comfortable for you, then "
+            "use them in any studio."
         )
         intro.setWordWrap(True)
-        intro.setStyleSheet(f"""
-            color: {SECONDARY_TEXT};
-            font-size: 14px;
-        """)
-
-        self.content_layout.addWidget(intro)
+        intro.setStyleSheet(f"color: {SECONDARY_TEXT}; font-size: 13px;")
+        text.addWidget(intro)
 
         # Presentation gestures used to be edited here; they now live in
         # Presentation Studio, where people present. A pointer, not a copy.
@@ -120,57 +131,28 @@ class GesturePage(StudioPage):
         pointer.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; color: {PRIMARY};
-                font-size: 13px; font-weight: 600; text-align: left; padding: 2px 0;
+                font-size: 12px; font-weight: 600; text-align: left; padding: 2px 0;
             }}
             QPushButton:hover {{ color: {PRIMARY_HOVER}; }}
         """)
         pointer.clicked.connect(self.open_presentation_studio.emit)
-        self.content_layout.addWidget(pointer, 0, Qt.AlignLeft)
+        text.addWidget(pointer, 0, Qt.AlignLeft)
+        bar_layout.addLayout(text, 1)
 
-        test_button = QPushButton(
-            "Test Gestures && Motions"
-        )
-
-        test_button.setCursor(
-            Qt.PointingHandCursor
-        )
-
-        test_button.setAccessibleName(
-            "Test gestures with the camera"
-        )
-
+        test_button = QPushButton("\u25B6  Test gestures && motions")
+        test_button.setCursor(Qt.PointingHandCursor)
+        test_button.setAccessibleName("Test gestures with the camera")
         test_button.setStyleSheet(f"""
-            QPushButton {{
-                background: {OVERLAY_1};
-                color: {PRIMARY_TEXT};
-                border: 1px solid {BORDER};
-                border-radius: 10px;
-                padding: 10px 18px;
-                font-size: 13px;
-                font-weight: 600;
-            }}
-
-            QPushButton:hover {{
-                background: {SURFACE_HOVER};
-                border: 1px solid {PRIMARY};
-            }}
+            QPushButton {{ background: {PRIMARY}; color: {ON_PRIMARY}; border: none;
+                border-radius: 18px; padding: 0 20px; min-height: 36px;
+                font-size: 13px; font-weight: 700; }}
+            QPushButton:hover {{ background: {PRIMARY_HOVER}; }}
         """)
+        test_button.clicked.connect(self.test_gestures)
+        self.test_button = test_button
+        bar_layout.addWidget(test_button, 0, Qt.AlignVCenter)
 
-        test_button.clicked.connect(
-            self.test_gestures
-        )
-
-        button_row = QHBoxLayout()
-
-        button_row.setSpacing(10)
-
-        button_row.addWidget(test_button)
-
-        button_row.addStretch()
-
-        self.content_layout.addLayout(
-            button_row
-        )
+        self.content_layout.addWidget(bar)
 
         # -----------------------------------------
         # Custom gestures
@@ -207,6 +189,7 @@ class GesturePage(StudioPage):
             "button": "+ Record Custom Gesture",
             "empty": "No custom gestures yet.",
             "noun": "gesture",
+            "icon": "✋",
         },
         "motion": {
             "title": "Your motions",
@@ -215,6 +198,7 @@ class GesturePage(StudioPage):
             "button": "+ Record Custom Motion",
             "empty": "No custom motions yet.",
             "noun": "motion",
+            "icon": "〰",
         },
     }
 
@@ -228,6 +212,8 @@ class GesturePage(StudioPage):
     def _build_custom_section(self):
 
         self.section_lists = {}
+        self.section_frames = {}
+        self.accordion = Accordion()
 
         for kind in ("gesture", "motion"):
             self._build_section(kind)
@@ -235,41 +221,25 @@ class GesturePage(StudioPage):
         self.refresh_custom_list()
 
     def _build_section(self, kind):
+        """
+        "Your gestures" / "Your motions": sections that open and close,
+        like the studios'. Closed, they say how many you've recorded.
+        """
 
         config = self.SECTIONS[kind]
-
-        heading = QLabel(config["title"])
-
-        heading.setStyleSheet(f"""
-            color: {PRIMARY_TEXT};
-            font-size: 18px;
-            font-weight: 700;
-            margin-top: 12px;
-            border: none;
-            background: transparent;
-        """)
-
-        self.content_layout.addWidget(heading)
+        section = CollapsibleSection(config["title"], config["icon"])
+        section.setProperty("section", kind)
+        self.accordion.add(kind, section)
+        self.section_frames[kind] = section
 
         info = QLabel(config["info"])
-
         info.setWordWrap(True)
-
-        info.setStyleSheet(f"""
-            color: {SECONDARY_TEXT};
-            font-size: 14px;
-            border: none;
-            background: transparent;
-        """)
-
-        self.content_layout.addWidget(info)
+        info.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
+        section.body_layout.addWidget(info)
 
         list_layout = QVBoxLayout()
-
-        list_layout.setSpacing(10)
-
-        self.content_layout.addLayout(list_layout)
-
+        list_layout.setSpacing(8)
+        section.body_layout.addLayout(list_layout)
         self.section_lists[kind] = list_layout
 
         if kind == "gesture":
@@ -277,17 +247,15 @@ class GesturePage(StudioPage):
             self.custom_list_layout = list_layout
 
         record_button = QPushButton(config["button"])
-
         record_button.setCursor(Qt.PointingHandCursor)
-
         record_button.setStyleSheet(f"""
             QPushButton {{
                 background: {OVERLAY_1};
                 color: {PRIMARY_TEXT};
                 border: 1px solid {PRIMARY};
-                border-radius: 10px;
-                padding: 10px 18px;
-                font-size: 14px;
+                border-radius: 17px;
+                padding: 8px 18px;
+                font-size: 13px;
                 font-weight: 600;
             }}
 
@@ -295,14 +263,27 @@ class GesturePage(StudioPage):
                 background: {SURFACE_HOVER};
             }}
         """)
-
         record_button.clicked.connect(
             self.record_custom_gesture
             if kind == "gesture"
             else self.record_custom_motion
         )
+        section.body_layout.addWidget(record_button, 0, Qt.AlignLeft)
 
-        self.content_layout.addWidget(record_button, 0, Qt.AlignLeft)
+        self.content_layout.addWidget(section)
+
+    def toggle_section(self, kind):
+        self.accordion.toggle(kind)
+
+    def _update_summary(self, kind):
+        names = [entry["name"] for entry in self._entries(kind)]
+        noun = self.SECTIONS[kind]["noun"]
+        if not names:
+            text = f"None yet. Open to record your first {noun}."
+        else:
+            shown = ", ".join(names[:4]) + ("…" if len(names) > 4 else "")
+            text = f"{len(names)} {noun}{'' if len(names) == 1 else 's'}: {shown}"
+        self.section_frames[kind].set_summary(text)
 
     def refresh_custom_list(self):
 
@@ -318,6 +299,7 @@ class GesturePage(StudioPage):
             self._store(kind).load()
 
             entries = self._entries(kind)
+            self._update_summary(kind)
 
             if not entries:
 
@@ -474,10 +456,7 @@ class GesturePage(StudioPage):
 
             self.refresh_custom_list()
 
-            self.status_label.setText(
-                f'Status: Saved "{dialog.saved_name}". '
-                "Use + Add Gesture to assign it to an action."
-            )
+            toast(self, f'Saved "{dialog.saved_name}". Pick it for an action in any studio.')
 
     def delete_custom_gesture(self, name):
         self.delete_custom("gesture", name)
