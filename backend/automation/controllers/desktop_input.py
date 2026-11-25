@@ -8,6 +8,7 @@ Real keyboard / mouse-wheel input on Windows, and which app is in front.
     inp.press(["ctrl", "w"])     # a key combination
     inp.media("play_pause")      # Windows media keys (work in the background)
     inp.volume(+5)               # volume keys: 5 steps up (each about 2%)
+    inp.lock()                   # lock the computer
 
 Everything goes through SendInput (ctypes), the same path as a real
 keyboard and mouse, so apps can't tell the difference. The Windows calls
@@ -36,7 +37,7 @@ WHEEL_DELTA = 120   # one notch of a normal mouse wheel
 # Virtual-key codes (winuser.h).
 VK = {
     "backspace": 0x08, "tab": 0x09, "enter": 0x0D, "shift": 0x10, "ctrl": 0x11,
-    "alt": 0x12, "esc": 0x1B, "space": 0x20, "pageup": 0x21, "pagedown": 0x22,
+    "alt": 0x12, "win": 0x5B, "esc": 0x1B, "space": 0x20, "pageup": 0x21, "pagedown": 0x22,
     "end": 0x23, "home": 0x24, "left": 0x25, "up": 0x26, "right": 0x27,
     "down": 0x28, "media_next": 0xB0, "media_previous": 0xB1,
     "media_stop": 0xB2, "media_play_pause": 0xB3,
@@ -46,7 +47,7 @@ VK.update({chr(c).lower(): c for c in range(ord("A"), ord("Z") + 1)})
 VK.update({str(d): 0x30 + d for d in range(10)})
 
 # Keys that need the "extended" flag to be read correctly.
-EXTENDED = {VK[k] for k in ("left", "up", "right", "down", "pageup", "pagedown",
+EXTENDED = {VK[k] for k in ("win", "left", "up", "right", "down", "pageup", "pagedown",
                             "home", "end", "media_next", "media_previous",
                             "media_stop", "media_play_pause",
                             "volume_mute", "volume_down", "volume_up")}
@@ -156,6 +157,10 @@ class WinApi:
         event.mi.dwFlags = self.MOUSEEVENTF_WHEEL
         self._send([event])
 
+    def lock_workstation(self):
+        if not self.user32.LockWorkStation():
+            raise InputUnavailable("Windows didn't lock the computer.")
+
     def foreground_process(self):
         wintypes = self._wintypes
         hwnd = self.user32.GetForegroundWindow()
@@ -217,6 +222,10 @@ class DesktopInput:
             key = VK["volume_up"] if steps > 0 else VK["volume_down"]
             for _ in range(min(abs(steps), 50)):
                 self.api.send_keys([key])
+
+    def lock(self):
+        """Lock the computer (like Win+L, which apps can't send)."""
+        self.api.lock_workstation()
 
     def media(self, name):
         key = MEDIA_KEYS.get(name)

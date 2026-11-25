@@ -201,7 +201,7 @@ class FlowManager:
             # These happen live while the pose is held (gesture worker).
             pass
 
-        elif action in ("Browser", "Media", "Wheel"):
+        elif action in ("Browser", "Media", "Wheel", "System"):
             self.browse_media.execute(value)
 
         else:

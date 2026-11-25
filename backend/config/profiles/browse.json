@@ -31,6 +31,10 @@
         "🎤 close tab": "browse_tab_close",
         "🎤 reopen tab": "browse_tab_reopen",
         "🎤 next tab": "browse_tab_next",
-        "🎤 previous tab": "browse_tab_previous"
+        "🎤 previous tab": "browse_tab_previous",
+        "🎤 switch app": "browse_app_switch",
+        "🎤 next window": "browse_app_switch",
+        "🎤 show desktop": "browse_desktop",
+        "🎤 lock computer": "browse_lock"
     }
 }

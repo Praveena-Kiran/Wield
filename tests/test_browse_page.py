@@ -34,9 +34,9 @@ class BrowsePageTests(unittest.TestCase):
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         self.app.processEvents()
 
-    def test_four_sections_cover_every_action_once(self):
+    def test_sections_cover_every_action_once(self):
         from backend.automation import browse_media
-        self.assertEqual(list(self.page.editors), ["scroll", "video", "music", "tabs"])
+        self.assertEqual(list(self.page.editors), [s[0] for s in browse_media.SECTIONS])
         shown = [a for e in self.page.editors.values() for a in e.rows]
         self.assertEqual(sorted(shown), sorted(browse_media.ACTIONS))
 

@@ -256,6 +256,33 @@ class VolumeTests(unittest.TestCase):
         self.assertEqual(len(api.keys), 50)
 
 
+class WindowsTests(unittest.TestCase):
+
+    def test_switch_app_and_desktop_in_any_app(self):
+        from backend.automation.browse_media import BrowseMediaController
+        api = FakeWinApi("winword.exe")
+        c = BrowseMediaController(DesktopInput(api))
+        c.execute("app_switch")
+        c.execute("show_desktop")
+        self.assertEqual(api.keys, [[0x12, 0x09], [0x5B, ord("D")]])
+
+    def test_lock_uses_windows_lock_and_needs_a_hold(self):
+        from backend.automation.browse_media import BrowseMediaController
+        from backend.automation.events import profile_events
+
+        class Lockable(FakeWinApi):
+            locked = 0
+
+            def lock_workstation(self):
+                self.locked += 1
+
+        api = Lockable()
+        BrowseMediaController(DesktopInput(api)).execute("lock")
+        self.assertEqual(api.locked, 1)
+        event = profile_events({"gesture_map": {"✊ Fist": "browse_lock"}})[0]
+        self.assertEqual(event["hold_seconds"], 1.0)
+
+
 class TabTests(unittest.TestCase):
 
     def test_tab_shortcuts_in_a_browser(self):

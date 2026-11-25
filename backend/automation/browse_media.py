@@ -16,6 +16,8 @@ name and the event it becomes: (name, action, value).
     "Media"    Windows media and volume keys: work in the background and in
                any player (Spotify, VLC, a browser tab)
     "VolumeHold"  like "Scroll", but moving the held hand changes the volume
+    "System"   Windows itself, whatever is in front: switch app (Alt+Tab),
+               show the desktop (Win+D), lock the computer
 
 Closing tabs by name or website ("close all YouTube tabs") would need a
 browser extension; it's a possible follow-up.
@@ -49,6 +51,9 @@ ACTIONS = [
     "browse_tab_reopen",
     "browse_tab_next",
     "browse_tab_previous",
+    "browse_app_switch",
+    "browse_desktop",
+    "browse_lock",
 ]
 
 # How the studio groups its actions: (key, title, icon, where it works, actions).
@@ -68,6 +73,9 @@ SECTIONS = [
     ("tabs", "Browser tabs", "⧉",
      "Chrome, Edge, Firefox or Brave in front. Closing needs a one-second hold.",
      ["browse_tab_close", "browse_tab_reopen", "browse_tab_next", "browse_tab_previous"]),
+    ("windows", "Windows", "⊞",
+     "Any time: switch apps, show the desktop, lock the computer (hold to lock).",
+     ["browse_app_switch", "browse_desktop", "browse_lock"]),
 ]
 
 PROFILE_ACTIONS = {
@@ -90,6 +98,9 @@ PROFILE_ACTIONS = {
     "browse_tab_reopen": ("Reopen closed tab", "Browser", "tab_reopen"),
     "browse_tab_next": ("Next tab", "Browser", "tab_next"),
     "browse_tab_previous": ("Previous tab", "Browser", "tab_previous"),
+    "browse_app_switch": ("Switch to the last app", "System", "app_switch"),
+    "browse_desktop": ("Show the desktop", "System", "show_desktop"),
+    "browse_lock": ("Lock the computer (hold)", "System", "lock"),
 }
 
 # Actions that only run after the pose is held this many seconds, with a
@@ -97,6 +108,7 @@ PROFILE_ACTIONS = {
 # never happen by accident.
 HOLD_SECONDS = {
     "browse_tab_close": 1.0,
+    "browse_lock": 1.0,
 }
 
 # value -> ("keys", [keys for the browser in front]) or ("media", media key)
@@ -123,6 +135,10 @@ COMMANDS = {
     "tab_reopen": ("keys", ["ctrl", "shift", "t"]),
     "tab_next": ("keys", ["ctrl", "tab"]),
     "tab_previous": ("keys", ["ctrl", "shift", "tab"]),
+    # Windows itself: any app in front.
+    "app_switch": ("system_keys", ["alt", "tab"]),
+    "show_desktop": ("system_keys", ["win", "d"]),
+    "lock": ("lock", None),
 }
 
 
@@ -195,6 +211,14 @@ class BrowseMediaController:
 
         if kind == "wheel":
             self.input.scroll(what * self.wheel_notches() * WHEEL_DELTA)
+            return
+
+        if kind == "system_keys":
+            self.input.press(what)
+            return
+
+        if kind == "lock":
+            self.input.lock()
             return
 
         if kind == "volume":
