@@ -52,14 +52,52 @@ jobs:
           Get-Content "$env:WIELD_DATA_DIR\self_test.log"
           if ($p.ExitCode -ne 0) { exit 1 }
 
-      - name: Zip
+      - name: Zip (portable version)
         shell: pwsh
         run: Compress-Archive -Path dist\Wield -DestinationPath Wield-windows.zip
+
+      # The installer: desktop icon, Start menu, uninstaller (Inno Setup).
+      - name: Build Wield-Setup.exe
+        shell: pwsh
+        run: |
+          $version = python -c "from backend.app_info import VERSION; print(VERSION)"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=$version" "/DSourceDir=$pwd\dist\Wield" installer\Wield.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Copy-Item installer-output\Wield-Setup.exe Wield-Setup.exe
+
+      # Install it like a user would (silently), check the shortcuts, run
+      # the installed app's self-test, then uninstall.
+      - name: Test the installer
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\Wield-Setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Setup failed: $($p.ExitCode)" }
+          $app = "$env:LOCALAPPDATA\Programs\Wield"
+          if (-not (Test-Path "$app\Wield.exe")) { throw "Wield.exe wasn't installed" }
+          $desktop = [Environment]::GetFolderPath('Desktop')
+          if (-not (Test-Path "$desktop\Wield.lnk")) { throw "No desktop icon" }
+          $menu = [Environment]::GetFolderPath('Programs')
+          if (-not (Test-Path "$menu\Wield.lnk")) { throw "No Start-menu entry" }
+          $t = Start-Process -FilePath "$app\Wield.exe" -ArgumentList '--self-test' -Wait -PassThru
+          Get-Content "$env:WIELD_DATA_DIR\self_test.log"
+          if ($t.ExitCode -ne 0) { throw "The installed app failed its self-test" }
+          Start-Process -FilePath "$app\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES' -Wait
+          # The uninstaller hands over to a copy of itself; wait for it.
+          for ($i = 0; $i -lt 60 -and (Test-Path "$app\Wield.exe"); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path "$app\Wield.exe") { throw "Uninstall left Wield.exe behind" }
+          if (Test-Path "$desktop\Wield.lnk") { throw "Uninstall left the desktop icon" }
+          Write-Output "Installer OK: install, shortcuts, self-test, uninstall"
 
       - uses: actions/upload-artifact@v4
         with:
           name: Wield-windows
-          path: Wield-windows.zip
+          path: |
+            Wield-windows.zip
+            Wield-Setup.exe
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -67,6 +105,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" Wield-windows.zip `
+          gh release create "${{ github.ref_name }}" Wield-Setup.exe Wield-windows.zip `
             --title "Wield ${{ github.ref_name }}" `
-            --notes "Download Wield-windows.zip, extract it and run Wield\Wield.exe. Requires Windows 10/11 and a webcam."
+            --notes "Download **Wield-Setup.exe** and run it: Wield gets a desktop icon, a Start-menu entry and an uninstaller. Updating? Just run the new setup; your gestures and settings are kept. Prefer no install? Wield-windows.zip is the portable version (extract it and run Wield\Wield.exe). Requires Windows 10/11 and a webcam."

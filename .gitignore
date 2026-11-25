@@ -217,3 +217,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Inno Setup output
+installer-output/
+Wield-Setup.exe
