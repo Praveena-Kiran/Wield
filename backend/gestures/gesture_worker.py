@@ -12,6 +12,7 @@ from backend.gestures.motions import HandMotionRecognizer, hand_points
 from backend.settings import gesture_settings
 from backend.profile_manager import ProfileManager
 from backend.automation.events import events_for_gesture, profile_events
+from backend.gestures.scroll import ScrollController
 
 
 class GestureWorker(QObject):
@@ -20,6 +21,10 @@ class GestureWorker(QObject):
 
     # An event to run: {"name", "gesture", "action", "value"}
     custom_event_detected = Signal(dict)
+
+    # Scroll the window in front by this many wheel units (+ up), and the
+    # direction now ("up", "down" or "" when held still).
+    scroll_requested = Signal(int, str)
 
     status_changed = Signal(str)
     error = Signal(str)
@@ -92,6 +97,23 @@ class GestureWorker(QObject):
             self.events = profile_events(
                 profile_manager.current_profile
             )
+
+        # -----------------------------------------------------
+        # LIVE SCROLLING (Browse & Media Studio)
+        # -----------------------------------------------------
+        # Poses mapped to "Scroll" scroll while held instead of running once.
+
+        self.scroll_poses = {
+            event["gesture"] for event in self.events
+            if event.get("action") == "Scroll" and event.get("gesture")
+        }
+        self.events = [e for e in self.events if e.get("action") != "Scroll"]
+        self.scroller = ScrollController(
+            speed=self.settings["browse_scroll_speed"],
+            height_sets_speed=self.settings["browse_scroll_by_height"],
+        )
+        self._motions_quiet_until = 0.0
+        self._scroll_direction = ""
 
     def _open_camera(self, attempts=4, delay=0.75):
         """
@@ -183,6 +205,15 @@ class GestureWorker(QObject):
                 self.recognizer.detect(frame)
             )
 
+            now = time.monotonic()
+
+            # -------------------------------------------------
+            # LIVE SCROLLING (while the scroll pose is held)
+            # -------------------------------------------------
+
+            if self.scroll_poses and self._scroll(gesture, confidence, now):
+                continue
+
             # -------------------------------------------------
             # MOTIONS (swipes, waves...)
             # -------------------------------------------------
@@ -190,11 +221,12 @@ class GestureWorker(QObject):
             h, w = frame.shape[:2]
 
             motion = self.motions.update(
-                time.monotonic(),
+                now,
                 hand_points(self.recognizer.last_image_landmarks, w / h),
             )
 
-            if motion:
+            # Just after scrolling, the hand dropping back isn't a swipe.
+            if motion and now >= self._motions_quiet_until:
                 self._handle_motion(*motion)
 
             # While the hand is moving, ignore poses so a swipe can't
@@ -241,6 +273,61 @@ class GestureWorker(QObject):
             )
 
             self._trigger(confirmed_gesture)
+
+    def _pose(self, gesture, confidence):
+        """This frame's pose (built-in or recorded), or None."""
+
+        if self.custom_matcher.has_gestures():
+            custom, custom_confidence = self.custom_matcher.match(
+                self.recognizer.last_landmarks,
+                self.recognizer.last_handedness,
+            )
+            if custom:
+                return custom
+        if gesture and confidence >= self.stabilizer.confidence_threshold:
+            return gesture
+        return None
+
+    def _hand_height(self):
+        """Palm height in 0..1 image coordinates (0 = top), or None."""
+        lm = self.recognizer.last_image_landmarks
+        if not lm or len(lm) < 10:
+            return None
+        y = lambda p: p.y if hasattr(p, "y") else p[1]
+        return (y(lm[0]) + y(lm[9])) / 2
+
+    def _scroll(self, gesture, confidence, now):
+        """
+        Scroll while a scroll pose is held. Returns True if this frame was
+        used for scrolling (so it doesn't also trigger anything else).
+        """
+
+        holding = self._pose(gesture, confidence) in self.scroll_poses
+        if holding and self.require_arm and not self.armed:
+            holding = False
+
+        amount = self.scroller.update(holding, self._hand_height() if holding else None, now)
+
+        direction = self.scroller.direction or ""
+        if holding and direction != self._scroll_direction:
+            self._scroll_direction = direction
+            self.scroll_requested.emit(0, direction)
+
+        if not holding:
+            if self._scroll_direction or self.scroller.active:
+                self._scroll_direction = ""
+            return False
+
+        if self.require_arm:
+            self._set_armed(True)      # still in use
+
+        if amount:
+            self.scroll_requested.emit(amount, direction)
+
+        # Nothing else fires while scrolling, and for a moment after.
+        self.stabilizer.update(None, 0.0)
+        self._motions_quiet_until = now + 0.6
+        return True
 
     def _handle_motion(self, motion, confidence):
 

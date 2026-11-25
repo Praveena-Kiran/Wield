@@ -20,6 +20,9 @@ class FlowManager:
     def __init__(self):
         self.current_studio = None
 
+        from backend.automation.browse_media import BrowseMediaController
+        self.browse_media = BrowseMediaController()
+
         self.actions = {
             "launch": LaunchAction(),
             "wait": WaitAction(),
@@ -193,6 +196,13 @@ class FlowManager:
         elif action in ("App", "LensFlow"):
             # Arm/disarm is handled by the gesture worker itself.
             pass
+
+        elif action == "Scroll":
+            # Scrolling happens live while the pose is held (gesture worker).
+            pass
+
+        elif action in ("Browser", "Media"):
+            self.browse_media.execute(value)
 
         else:
             raise ValueError(f'Unknown action "{action}".')

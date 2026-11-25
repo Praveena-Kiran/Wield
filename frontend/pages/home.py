@@ -57,7 +57,21 @@ BUILT_IN_DESCRIPTIONS = {
     "Presentation Studio": "Control PowerPoint slides with gestures and swipes.",
     "Coding Studio": "Open your development workspace in one go.",
     "Gesture Studio": "Record, test and assign your gestures and motions.",
+    "Browse & Media Studio": "Scroll, control videos and music, and switch tabs hands-free.",
 }
+
+# Built-in studios added after the first release: added to existing users'
+# studio lists (after the studio named second) the first time Home loads.
+ADDED_STUDIOS = [
+    ({
+        "title": "Browse & Media Studio",
+        "description": "Scroll, control videos and music, and switch tabs hands-free.",
+        "apps": ["Browser", "Media"],
+        "icon_symbol": "▶",
+        "accent": "#5FC9A8",
+        "type": "builtin",
+    }, "Coding Studio"),
+]
 
 # Older versions shipped an empty "Automation Studio" that duplicated
 # "+ New studio". Hide it unless the user has added events to it.
@@ -514,7 +528,30 @@ class HomePage(QWidget):
         if not isinstance(studios, list):
             return []
 
-        return [s for s in studios if isinstance(s, dict) and s.get("title")]
+        studios = [s for s in studios if isinstance(s, dict) and s.get("title")]
+        return self._add_new_studios(studios)
+
+    def _add_new_studios(self, studios):
+        """Give existing users the built-in studios added since they installed."""
+
+        titles = {s["title"] for s in studios}
+        added = False
+
+        for studio, after in ADDED_STUDIOS:
+            if studio["title"] in titles:
+                continue
+            index = next((i + 1 for i, s in enumerate(studios) if s["title"] == after), len(studios))
+            studios.insert(index, dict(studio))
+            added = True
+
+        if added:
+            try:
+                with open(self.get_config_path(), "w", encoding="utf-8") as f:
+                    json.dump(studios, f, indent=4, ensure_ascii=False)
+            except OSError as e:
+                print(f"⚠ Could not save the new studios: {e}")
+
+        return studios
 
     def _last_used(self):
         """{studio title: last activity datetime} from the activity log."""

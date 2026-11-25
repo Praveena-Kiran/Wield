@@ -1,0 +1,6 @@
+{
+    "name": "Browse & Media",
+    "gesture_map": {
+        "✌️ Peace": "browse_scroll"
+    }
+}

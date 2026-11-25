@@ -23,6 +23,17 @@
         "type": "builtin"
     },
     {
+        "title": "Browse & Media Studio",
+        "description": "Scroll, control videos and music, and switch tabs hands-free.",
+        "apps": [
+            "Browser",
+            "Media"
+        ],
+        "icon_symbol": "▶",
+        "accent": "#5FC9A8",
+        "type": "builtin"
+    },
+    {
         "title": "Gesture Studio",
         "description": "Record, test and assign your gestures and motions.",
         "apps": [

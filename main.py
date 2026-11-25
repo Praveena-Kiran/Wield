@@ -57,6 +57,8 @@ from frontend.components.feedback_overlay import Feedback
 from frontend.pages.home import HomePage
 from frontend.pages.presentation_page import PresentationPage
 from frontend.pages.coding_page import CodingPage
+from frontend.pages.browse_page import BrowsePage
+from backend.automation.controllers.desktop_input import DesktopInput, InputUnavailable
 from frontend.pages.gesture_page import GesturePage
 from frontend.pages.custom_page import CustomPage
 from frontend.pages.settings_page import SettingsPage
@@ -261,6 +263,8 @@ class MainWindow(QMainWindow):
             GesturePage()
         )
 
+        self.browse_page = BrowsePage()
+
         self.custom_page = (
             CustomPage()
         )
@@ -301,6 +305,10 @@ class MainWindow(QMainWindow):
 
         self.stack.addWidget(
             self.gesture_page
+        )
+
+        self.stack.addWidget(
+            self.browse_page
         )
 
         self.stack.addWidget(
@@ -427,6 +435,20 @@ class MainWindow(QMainWindow):
         self.gesture_page.open_presentation_studio.connect(
             lambda: self.open_live_workspace("Presentation Studio")
         )
+
+        # Browse & Media Studio
+        self.browse_page.back_requested.connect(self.go_home)
+        self.browse_page.listening_requested.connect(self.set_browse_listening)
+        self.browse_page.bindings_changed.connect(self._on_browse_bindings_changed)
+        self.browse_page.open_gesture_studio.connect(
+            lambda: self.open_live_workspace("Gesture Studio")
+        )
+        self.desktop_input = DesktopInput()
+        self._scroll_error_shown = False
+        self._browse_restart = QTimer(self)
+        self._browse_restart.setSingleShot(True)
+        self._browse_restart.setInterval(700)
+        self._browse_restart.timeout.connect(self._apply_browse_bindings)
 
         self.presentation_page.listening_requested.connect(
             self.set_presentation_listening
@@ -816,6 +838,14 @@ class MainWindow(QMainWindow):
         # CODING
         # =====================================================
 
+        elif studio_name == BrowsePage.TITLE:
+
+            self.browse_page.refresh_bindings()
+
+            self.stack.setCurrentWidget(
+                self.browse_page
+            )
+
         elif studio_name == "Coding Studio":
 
             self.stack.setCurrentWidget(
@@ -1075,6 +1105,10 @@ class MainWindow(QMainWindow):
             self._on_gesture_error
         )
 
+        self.gesture_worker.scroll_requested.connect(
+            self._on_scroll
+        )
+
         if self.gesture_context == "custom":
             self.custom_page.set_gesture_control_running(
                 True,
@@ -1103,6 +1137,12 @@ class MainWindow(QMainWindow):
                 self.presentation_page._set_status(message, color)
             else:
                 self.presentation_page._set_status(message)
+
+        elif context == "browse":
+            if color:
+                self.browse_page.set_status(message, color)
+            else:
+                self.browse_page.set_status(message)
 
     @Slot(dict)
     def _on_gesture_event(
@@ -1201,6 +1241,9 @@ class MainWindow(QMainWindow):
         if status == "READY" and self.gesture_context == "presentation":
             self.presentation_page.set_listening(True)
 
+        if status == "READY" and self.gesture_context == "browse":
+            self.browse_page.set_listening(True)
+
         if status == "READY":
             message = arm_hint or "Listening for gestures…"
             if self._voice_note:
@@ -1247,6 +1290,9 @@ class MainWindow(QMainWindow):
         if self.gesture_context == "presentation" or self.gesture_worker is None:
             # Keep the camera indicator honest whatever stopped it.
             self.presentation_page.set_listening(False)
+
+        if self.gesture_context == "browse" or self.gesture_worker is None:
+            self.browse_page.set_listening(False)
 
         if self.gesture_worker is None:
 
@@ -1408,6 +1454,59 @@ class MainWindow(QMainWindow):
                 print("📷 Camera and microphone off")
                 self.stop_gesture_worker()
             self.presentation_page.set_listening(False)
+
+    # =============================================================
+    # BROWSE & MEDIA STUDIO
+    # =============================================================
+
+    def set_browse_listening(self, on):
+        """Turn Browse & Media Studio's camera (and microphone) on or off."""
+
+        if on:
+            if self.gesture_context == "browse" and self.gesture_worker is not None:
+                return
+            self.browse_page.set_listening("starting")
+            self._scroll_error_shown = False
+            self.start_gesture_worker("browse")
+            if self.gesture_worker is None:
+                self.browse_page.set_listening(False)
+        else:
+            if self.gesture_context == "browse":
+                self.stop_gesture_worker()
+            self.browse_page.set_listening(False)
+
+    def _on_browse_bindings_changed(self):
+        self.gesture_page.refresh_gesture_list()
+        if self.gesture_context == "browse" and self.gesture_worker is not None:
+            self._browse_restart.start()
+
+    def _apply_browse_bindings(self):
+        if self.gesture_context == "browse" and self.gesture_worker is not None:
+            print("🔄 Browse & Media controls changed: reloading")
+            self.start_gesture_worker("browse")
+            self.browse_page.set_listening(
+                "starting" if self.gesture_worker is not None else False
+            )
+
+    @Slot(int, str)
+    def _on_scroll(self, amount, direction):
+        """The worker asks to scroll the window in front (live, while held)."""
+
+        if amount:
+            try:
+                self.desktop_input.scroll(amount)
+            except (InputUnavailable, OSError) as e:
+                if not self._scroll_error_shown:
+                    self._scroll_error_shown = True
+                    self._gesture_feedback(f"⚠ Can't scroll: {e}", ERROR)
+                    self.feedback.failed("Scroll", str(e))
+                return
+
+        label = {"up": "Scrolling up ↑", "down": "Scrolling down ↓"}.get(direction)
+        if amount == 0:
+            self._gesture_feedback(label or "Holding: move up or down to scroll")
+            if label:
+                self.feedback.info(label)
 
     def _on_presentation_bindings_changed(
         self

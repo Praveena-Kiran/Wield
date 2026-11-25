@@ -17,6 +17,8 @@ Stored in the user's settings.json (via SettingsManager):
     fog_colour        "white" | "black"  the fog on Home's window; the
                       writing uses a contrasting ink
     fog_stroke        "thin" | "medium" | "thick"  pen size on the window
+    browse_scroll_speed     "slow" | "medium" | "fast"  gesture scrolling
+    browse_scroll_by_height bool  hand height sets the scroll speed
 
 thresholds() turns these into the numbers the matchers use.
 """
@@ -36,7 +38,11 @@ DEFAULTS = {
     "voice_wake_word": True,
     "fog_colour": "white",
     "fog_stroke": "medium",
+    "browse_scroll_speed": "medium",
+    "browse_scroll_by_height": True,
 }
+
+SCROLL_SPEEDS = ("slow", "medium", "fast")
 
 FOG_COLOURS = ("white", "black")
 FOG_STROKES = ("thin", "medium", "thick")
@@ -70,6 +76,9 @@ def load():
         values["fog_colour"] = DEFAULTS["fog_colour"]
     if values["fog_stroke"] not in FOG_STROKES:
         values["fog_stroke"] = DEFAULTS["fog_stroke"]
+    if values["browse_scroll_speed"] not in SCROLL_SPEEDS:
+        values["browse_scroll_speed"] = DEFAULTS["browse_scroll_speed"]
+    values["browse_scroll_by_height"] = bool(values["browse_scroll_by_height"])
 
     return values
 

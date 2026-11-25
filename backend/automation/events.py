@@ -18,6 +18,7 @@ can be added in one place.
 """
 
 from backend.app_info import APP_NAME
+from backend.automation import browse_media
 
 
 # Actions an event can run (shown in the event editor).
@@ -69,6 +70,9 @@ PROFILE_ACTIONS = {
     "ACTIVATE": (f"Activate {APP_NAME}", "App", "activate"),
     "DEACTIVATE": (f"Deactivate {APP_NAME}", "App", "deactivate"),
 }
+
+# Browse & Media Studio (scrolling, video, tabs).
+PROFILE_ACTIONS.update(browse_media.PROFILE_ACTIONS)
 
 
 def friendly_action(code):
@@ -131,12 +135,18 @@ def profile_events(profile):
             (action_name, "Run Flow", action_name),
         )
 
-        events.append({
+        event = {
             "name": name,
             "gesture": gesture,
             "action": action,
             "value": value,
-        })
+        }
+
+        # Deliberate actions (e.g. closing a tab) need the pose held.
+        if action_name in browse_media.HOLD_SECONDS:
+            event["hold_seconds"] = browse_media.HOLD_SECONDS[action_name]
+
+        events.append(event)
 
     return events
 
