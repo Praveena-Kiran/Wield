@@ -1,6 +1,16 @@
 {
     "name": "Browse & Media",
     "gesture_map": {
-        "✌️ Peace": "browse_scroll"
+        "✌️ Peace": "browse_scroll",
+        "👍 Thumbs Up": "browse_video_play_pause",
+        "Swipe right": "browse_video_forward",
+        "Swipe left": "browse_video_back",
+        "🎤 play video": "browse_video_play_pause",
+        "🎤 pause video": "browse_video_play_pause",
+        "🎤 skip ahead": "browse_video_forward",
+        "🎤 rewind": "browse_video_back",
+        "🎤 play music": "browse_media_play_pause",
+        "🎤 next track": "browse_media_next",
+        "🎤 previous track": "browse_media_previous"
     }
 }

@@ -133,6 +133,59 @@ class ScrollTests(unittest.TestCase):
         self.assertTrue(all(a >= 0 for a in amounts))   # never flips direction
 
 
+class VideoAndMediaTests(unittest.TestCase):
+
+    def controller(self, foreground="chrome.exe"):
+        from backend.automation.browse_media import BrowseMediaController
+        self.api = FakeWinApi(foreground)
+        return BrowseMediaController(DesktopInput(self.api))
+
+    def test_youtube_keys_in_a_browser(self):
+        c = self.controller("chrome.exe")
+        for command, key in (("video_play_pause", "k"), ("video_forward_10", "l"),
+                             ("video_back_10", "j"), ("video_forward_5", "right"),
+                             ("video_back_5", "left")):
+            c.execute(command)
+            self.assertEqual(self.api.keys[-1], [VK[key]], command)
+
+    def test_letters_are_never_typed_outside_a_browser(self):
+        from backend.automation.browse_media import NotInBrowser
+        for app in ("winword.exe", "notepad.exe", "slack.exe", ""):
+            c = self.controller(app)
+            with self.assertRaises(NotInBrowser):
+                c.execute("video_play_pause")
+            self.assertEqual(self.api.keys, [], app)
+
+    def test_media_keys_work_with_any_app_in_front(self):
+        c = self.controller("spotify.exe")
+        c.execute("play_pause")
+        c.execute("next")
+        c.execute("previous")
+        self.assertEqual(self.api.keys, [[0xB3], [0xB0], [0xB1]])
+
+    def test_unknown_command(self):
+        with self.assertRaises(ValueError):
+            self.controller().execute("explode")
+
+    def test_every_studio_action_maps_to_a_command(self):
+        from backend.automation import browse_media as B
+        for code in B.ACTIONS:
+            name, action, value = B.PROFILE_ACTIONS[code]
+            if action == "Scroll":
+                continue
+            self.assertIn(value, B.COMMANDS, code)
+
+    def test_runner_uses_the_controller(self):
+        from backend.automation.browse_media import BrowseMediaController
+        from backend.automation.flow_manager import FlowManager
+        runner = FlowManager.__new__(FlowManager)
+        api = FakeWinApi("firefox.exe")
+        runner.browse_media = BrowseMediaController(DesktopInput(api))
+        runner.execute_custom_event({"name": "Play", "action": "Browser", "value": "video_play_pause"})
+        runner.execute_custom_event({"name": "Next", "action": "Media", "value": "next"})
+        self.assertEqual(api.keys, [[VK["k"]], [0xB0]])
+
+
 class ProfileTests(unittest.TestCase):
 
     def test_default_profile_and_events(self):
