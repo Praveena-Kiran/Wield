@@ -90,6 +90,21 @@ class HomeRemoveTests(unittest.TestCase):
         for core in ("Presentation Studio", "Browse & Media Studio", "Gesture Studio"):
             self.assertNotIn(f"Remove {core}", names)
 
+    def test_rows_open_studios_without_an_open_button(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QFrame, QPushButton
+        texts = {b.text() for b in self.home.findChildren(QPushButton)}
+        self.assertNotIn("Open", texts)
+        self.assertNotIn("Edit", texts)
+
+        opened = []
+        self.home.studio_selected.connect(opened.append)
+        rows = {r.accessibleName(): r for r in self.home.findChildren(QFrame, "StudioRow")}
+        QTest.mouseClick(rows["Open Presentation Studio"], Qt.LeftButton)
+        QTest.keyClick(rows["Open Gesture Studio"], Qt.Key_Return)
+        self.assertEqual(opened, ["Presentation Studio", "Gesture Studio"])
+
     def test_remove_from_home(self):
         removed = []
         self.home.studio_removed.connect(removed.append)

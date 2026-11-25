@@ -216,6 +216,7 @@ class HomePage(QWidget):
             QFrame#Card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 24px; }}
             QFrame#StudioRow {{ background: transparent; border: none; border-top: 1px solid {BORDER}; }}
             QFrame#StudioRow:hover {{ background: {OVERLAY_1}; }}
+            QFrame#StudioRow:focus {{ background: {OVERLAY_1}; }}
         """)
 
         scroll = QScrollArea(self)
@@ -613,6 +614,20 @@ class HomePage(QWidget):
         row.setMinimumHeight(68)
         row.mousePressEvent = lambda event, t=title: self.studio_selected.emit(t)
 
+        # The whole row opens the studio (no separate Open button). It can
+        # also be reached with Tab and opened with Enter or Space.
+        row.setFocusPolicy(Qt.TabFocus)
+        row.setAccessibleName(f"Open {title}")
+        row.setToolTip(f"Open {title}")
+
+        def key_press(event, t=title, frame=row):
+            if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+                self.studio_selected.emit(t)
+            else:
+                QFrame.keyPressEvent(frame, event)
+
+        row.keyPressEvent = key_press
+
         layout = QHBoxLayout(row)
         layout.setContentsMargins(6, 10, 6, 10)
         layout.setSpacing(16)
@@ -650,11 +665,6 @@ class HomePage(QWidget):
             launch.clicked.connect(lambda checked=False, t=title: self.launch_all_events_requested.emit(t))
             layout.addWidget(launch)
 
-        open_button = _button("Edit" if custom else "Open")
-        open_button.setAccessibleName(f"{'Edit' if custom else 'Open'} {title}")
-        open_button.clicked.connect(lambda checked=False, t=title: self.studio_selected.emit(t))
-        layout.addWidget(open_button)
-
         # The main studios always stay; the rest can be removed.
         if catalog.removable(title):
             remove = _button("✕", quiet=True)
@@ -663,6 +673,8 @@ class HomePage(QWidget):
             remove.setAccessibleName(f"Remove {title}")
             remove.clicked.connect(lambda checked=False, t=title: self.remove_studio(t))
             layout.addWidget(remove)
+        else:
+            layout.addSpacing(34 + layout.spacing())   # keep the columns lined up
 
         return row
 
