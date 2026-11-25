@@ -46,6 +46,38 @@ class BrowsePageTests(unittest.TestCase):
         self.assertIn("🎤 scroll down", rows["browse_scroll_down"].triggers)
         self.assertIn("Swipe up", rows["browse_scroll_up"].triggers)
 
+    def _scrolled_to(self, editor, action):
+        from PySide6.QtWidgets import QPushButton, QScrollArea
+        self.page.resize(1060, 700)
+        self.page.show()
+        self.app.processEvents()
+        area = [a for a in self.page.findChildren(QScrollArea) if a.objectName() == "ContentScroll"][0]
+        add = editor.rows[action].findChild(QPushButton, "AddTrigger")
+        area.ensureWidgetVisible(add)
+        self.app.processEvents()
+        add.setFocus()
+        self.app.processEvents()
+        return area.verticalScrollBar()
+
+    def test_adding_a_trigger_does_not_move_the_page(self):
+        editor = self.page.editors["video"]
+        bar = self._scrolled_to(editor, "browse_video_back_5")
+        before = bar.value()
+        self.assertGreater(before, 0)
+        editor.assign("👎 Thumbs Down", "browse_video_back_5")
+        for _ in range(5):
+            self.app.processEvents()
+        self.assertEqual(bar.value(), before)
+
+    def test_removing_a_trigger_does_not_move_the_page(self):
+        editor = self.page.editors["tabs"]
+        bar = self._scrolled_to(editor, "browse_tab_next")
+        before = bar.value()
+        editor.remove_trigger("☝️ Pointing Up")
+        for _ in range(5):
+            self.app.processEvents()
+        self.assertEqual(bar.value(), before)
+
     def test_moving_a_trigger_between_sections_updates_both(self):
         changes = []
         self.page.bindings_changed.connect(lambda: changes.append(1))

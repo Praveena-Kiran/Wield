@@ -7,10 +7,12 @@ remove button, plus "+ Add" to pick another. Picking a trigger that another
 action uses moves it here (a trigger can only do one thing).
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
+    QScrollArea,
     QLineEdit,
     QDialog,
     QDialogButtonBox,
@@ -271,6 +273,27 @@ class ActionTriggerEditor(QWidget):
     # ---------------------------------------------------------
 
     def refresh(self):
+        """
+        Rebuild the rows from the profile, without moving the page: the
+        scroll position is kept, and the keyboard focus stays on the same
+        row's "+ Add" (deleting a focused button would otherwise send the
+        focus, and the scroll, to the bottom of the page).
+        """
+
+        bar = self._scroll_bar()
+        position = bar.value() if bar is not None else None
+
+        focused_action = None
+        focus = QApplication.focusWidget()
+        if focus is not None and self.isAncestorOf(focus):
+            focused_action = next(
+                (a for a, row in self.rows.items() if row is focus or row.isAncestorOf(focus)),
+                None,
+            )
+            # Park the focus on the editor itself while the rows are rebuilt.
+            self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
+
         while self.layout_.count():
             widget = self.layout_.takeAt(0).widget()
             if widget:
@@ -286,6 +309,25 @@ class ActionTriggerEditor(QWidget):
             row = self._build_row(action, grouped[action], gestures, motions)
             self.rows[action] = row
             self.layout_.addWidget(row)
+
+        if focused_action in self.rows:
+            add = self.rows[focused_action].findChild(QPushButton, "AddTrigger")
+            if add is not None:
+                add.setFocus(Qt.FocusReason.OtherFocusReason)
+
+        if bar is not None:
+            bar.setValue(position)
+            # Again once the new rows are laid out (they may change the height).
+            QTimer.singleShot(0, lambda: bar.setValue(position))
+
+    def _scroll_bar(self):
+        """The vertical scroll bar of the page this editor sits in, if any."""
+        widget = self.parentWidget()
+        while widget is not None:
+            if isinstance(widget, QScrollArea):
+                return widget.verticalScrollBar()
+            widget = widget.parentWidget()
+        return None
 
     def _build_row(self, action, triggers, gestures, motions):
         row = QFrame()
@@ -310,6 +352,7 @@ class ActionTriggerEditor(QWidget):
         header.addStretch()
 
         add = QPushButton("+ Add gesture, motion or voice")
+        add.setObjectName("AddTrigger")
         add.setCursor(Qt.CursorShape.PointingHandCursor)
         add.setAccessibleName(f"Add a gesture, motion or voice command for {friendly_action(action)}")
         add.setStyleSheet(f"""
