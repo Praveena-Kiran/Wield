@@ -16,6 +16,10 @@ from backend.gestures.scroll import ScrollController
 from backend.gestures.hold import HoldTracker
 
 
+# Hold-and-move volume: wheel units (from ScrollController) per volume step.
+VOLUME_UNITS_PER_STEP = 300
+
+
 class GestureWorker(QObject):
 
     gesture_detected = Signal(str, float)
@@ -26,6 +30,10 @@ class GestureWorker(QObject):
     # Scroll the window in front by this many wheel units (+ up), and the
     # direction now ("up", "down" or "" when held still).
     scroll_requested = Signal(int, str)
+
+    # Change the volume by this many steps (+ louder), while a volume pose
+    # is held and moved; and the direction now ("up", "down" or "").
+    volume_requested = Signal(int, str)
 
     # A held action filling up: (event name, 0..1). 0 = let go / cancelled.
     hold_progress = Signal(str, float)
@@ -105,13 +113,19 @@ class GestureWorker(QObject):
         # -----------------------------------------------------
         # LIVE SCROLLING (Browse & Media Studio)
         # -----------------------------------------------------
-        # Poses mapped to "Scroll" scroll while held instead of running once.
+        # Poses mapped to "Scroll" (or "VolumeHold") work while held: move
+        # the hand up or down to scroll (or change the volume) instead of
+        # running once. pose -> "scroll" | "volume"
 
+        hold_and_move = {"Scroll": "scroll", "VolumeHold": "volume"}
         self.scroll_poses = {
-            event["gesture"] for event in self.events
-            if event.get("action") == "Scroll" and event.get("gesture")
+            event["gesture"]: hold_and_move[event["action"]]
+            for event in self.events
+            if event.get("action") in hold_and_move and event.get("gesture")
         }
-        self.events = [e for e in self.events if e.get("action") != "Scroll"]
+        self.events = [e for e in self.events if e.get("action") not in hold_and_move]
+        self._moving = None              # "scroll" / "volume" while held
+        self._volume_units = 0.0
         self.scroller = ScrollController(
             speed=self.settings["browse_scroll_speed"],
             height_sets_speed=self.settings["browse_scroll_by_height"],
@@ -313,27 +327,43 @@ class GestureWorker(QObject):
         used for scrolling (so it doesn't also trigger anything else).
         """
 
-        holding = self._pose(gesture, confidence) in self.scroll_poses
-        if holding and self.require_arm and not self.armed:
-            holding = False
+        kind = self.scroll_poses.get(self._pose(gesture, confidence))
+        if kind and self.require_arm and not self.armed:
+            kind = None
 
+        # Switching straight from the scroll pose to the volume pose starts afresh.
+        if kind != self._moving:
+            self.scroller.reset()
+            self._volume_units = 0.0
+            self._scroll_direction = ""
+            self._moving = kind
+
+        holding = kind is not None
         amount = self.scroller.update(holding, self._hand_height() if holding else None, now)
+
+        signal = self.volume_requested if kind == "volume" else self.scroll_requested
 
         direction = self.scroller.direction or ""
         if holding and direction != self._scroll_direction:
             self._scroll_direction = direction
-            self.scroll_requested.emit(0, direction)
+            signal.emit(0, direction)
 
         if not holding:
-            if self._scroll_direction or self.scroller.active:
-                self._scroll_direction = ""
             return False
 
         if self.require_arm:
             self._set_armed(True)      # still in use
 
-        if amount:
+        if amount and kind == "scroll":
             self.scroll_requested.emit(amount, direction)
+
+        elif amount and kind == "volume":
+            # Gentler than scrolling: one volume step (2%) per this many units.
+            self._volume_units += amount
+            steps = int(self._volume_units / VOLUME_UNITS_PER_STEP)
+            if steps:
+                self._volume_units -= steps * VOLUME_UNITS_PER_STEP
+                self.volume_requested.emit(steps, direction)
 
         # Nothing else fires while scrolling, and for a moment after.
         self.stabilizer.update(None, 0.0)

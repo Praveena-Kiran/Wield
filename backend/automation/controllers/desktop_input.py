@@ -7,6 +7,7 @@ Real keyboard / mouse-wheel input on Windows, and which app is in front.
     inp.scroll(240)              # mouse wheel: + up, - down (120 = one notch)
     inp.press(["ctrl", "w"])     # a key combination
     inp.media("play_pause")      # Windows media keys (work in the background)
+    inp.volume(+5)               # volume keys: 5 steps up (each about 2%)
 
 Everything goes through SendInput (ctypes), the same path as a real
 keyboard and mouse, so apps can't tell the difference. The Windows calls
@@ -39,6 +40,7 @@ VK = {
     "end": 0x23, "home": 0x24, "left": 0x25, "up": 0x26, "right": 0x27,
     "down": 0x28, "media_next": 0xB0, "media_previous": 0xB1,
     "media_stop": 0xB2, "media_play_pause": 0xB3,
+    "volume_mute": 0xAD, "volume_down": 0xAE, "volume_up": 0xAF,
 }
 VK.update({chr(c).lower(): c for c in range(ord("A"), ord("Z") + 1)})
 VK.update({str(d): 0x30 + d for d in range(10)})
@@ -46,13 +48,15 @@ VK.update({str(d): 0x30 + d for d in range(10)})
 # Keys that need the "extended" flag to be read correctly.
 EXTENDED = {VK[k] for k in ("left", "up", "right", "down", "pageup", "pagedown",
                             "home", "end", "media_next", "media_previous",
-                            "media_stop", "media_play_pause")}
+                            "media_stop", "media_play_pause",
+                            "volume_mute", "volume_down", "volume_up")}
 
 MEDIA_KEYS = {
     "play_pause": "media_play_pause",
     "next": "media_next",
     "previous": "media_previous",
     "stop": "media_stop",
+    "mute": "volume_mute",
 }
 
 
@@ -205,6 +209,14 @@ class DesktopInput:
 
     def press(self, keys):
         self.api.send_keys(key_codes(keys))
+
+    def volume(self, steps):
+        """Press volume up (+) or down (-) this many times (about 2% each)."""
+        steps = int(steps)
+        if steps:
+            key = VK["volume_up"] if steps > 0 else VK["volume_down"]
+            for _ in range(min(abs(steps), 50)):
+                self.api.send_keys([key])
 
     def media(self, name):
         key = MEDIA_KEYS.get(name)

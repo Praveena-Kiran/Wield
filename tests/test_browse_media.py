@@ -171,7 +171,7 @@ class VideoAndMediaTests(unittest.TestCase):
         from backend.automation import browse_media as B
         for code in B.ACTIONS:
             name, action, value = B.PROFILE_ACTIONS[code]
-            if action == "Scroll":
+            if action in ("Scroll", "VolumeHold"):     # live, not a command
                 continue
             self.assertIn(value, B.COMMANDS, code)
 
@@ -237,6 +237,23 @@ class ScrollStepTests(unittest.TestCase):
         self.assertNotIn("Swipe up", added)
         self.assertTrue(p.saved)
         self.assertEqual(add_missing_defaults(p), [])               # once only
+
+
+class VolumeTests(unittest.TestCase):
+
+    def test_volume_commands_in_any_app(self):
+        from backend.automation.browse_media import BrowseMediaController
+        api = FakeWinApi("winword.exe")
+        c = BrowseMediaController(DesktopInput(api))
+        c.execute("volume_up")
+        c.execute("volume_down")
+        c.execute("mute")
+        self.assertEqual(api.keys, [[0xAF]] * 5 + [[0xAE]] * 5 + [[0xAD]])
+
+    def test_volume_steps_are_capped(self):
+        api = FakeWinApi()
+        DesktopInput(api).volume(500)
+        self.assertEqual(len(api.keys), 50)
 
 
 class TabTests(unittest.TestCase):
@@ -398,6 +415,18 @@ class WorkerScrollTests(unittest.TestCase):
             self.worker._update_holds("✊ Fist", 0.9, i * 0.05)
         self.assertEqual([e["value"] for e in events], ["tab_close"])
         self.assertGreater(len(progress), 5)
+
+    def test_volume_pose_changes_volume_not_scroll(self):
+        self.worker.scroll_poses["☝️ Pointing Up"] = "volume"
+        volume = []
+        self.worker.volume_requested.connect(lambda steps, d: volume.append(steps))
+        self.hand_at(0.5)
+        self.worker._scroll("☝️ Pointing Up", 0.9, 0.0)
+        for i in range(1, 60):
+            self.hand_at(0.25)
+            self.worker._scroll("☝️ Pointing Up", 0.9, i / 30)
+        self.assertGreater(sum(volume), 0)
+        self.assertEqual([a for a in self.scrolls if a], [])
 
     def test_other_poses_are_not_scrolling(self):
         self.hand_at(0.3)

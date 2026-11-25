@@ -13,8 +13,9 @@ name and the event it becomes: (name, action, value).
     "Browser"  keys for the browser in front (YouTube's K / J / L / arrows);
                refused when anything else is in front, so letters are never
                typed into another app
-    "Media"    Windows media keys: work in the background and in any player
-               (Spotify, VLC, a browser tab)
+    "Media"    Windows media and volume keys: work in the background and in
+               any player (Spotify, VLC, a browser tab)
+    "VolumeHold"  like "Scroll", but moving the held hand changes the volume
 
 Closing tabs by name or website ("close all YouTube tabs") would need a
 browser extension; it's a possible follow-up.
@@ -40,6 +41,10 @@ ACTIONS = [
     "browse_media_play_pause",
     "browse_media_next",
     "browse_media_previous",
+    "browse_volume_up",
+    "browse_volume_down",
+    "browse_volume_mute",
+    "browse_volume_hold",
     "browse_tab_close",
     "browse_tab_reopen",
     "browse_tab_next",
@@ -55,9 +60,11 @@ SECTIONS = [
      "YouTube and most video sites, in the browser in front.",
      ["browse_video_play_pause", "browse_video_forward", "browse_video_back",
       "browse_video_forward_5", "browse_video_back_5"]),
-    ("music", "Music", "♫",
+    ("music", "Music & volume", "♫",
      "Spotify, VLC, a video in a tab: any player, even in the background.",
-     ["browse_media_play_pause", "browse_media_next", "browse_media_previous"]),
+     ["browse_media_play_pause", "browse_media_next", "browse_media_previous",
+      "browse_volume_up", "browse_volume_down", "browse_volume_mute",
+      "browse_volume_hold"]),
     ("tabs", "Browser tabs", "⧉",
      "Chrome, Edge, Firefox or Brave in front. Closing needs a one-second hold.",
      ["browse_tab_close", "browse_tab_reopen", "browse_tab_next", "browse_tab_previous"]),
@@ -75,6 +82,10 @@ PROFILE_ACTIONS = {
     "browse_media_play_pause": ("Play / pause music (any app)", "Media", "play_pause"),
     "browse_media_next": ("Next track", "Media", "next"),
     "browse_media_previous": ("Previous track", "Media", "previous"),
+    "browse_volume_up": ("Volume up", "Media", "volume_up"),
+    "browse_volume_down": ("Volume down", "Media", "volume_down"),
+    "browse_volume_mute": ("Mute / unmute", "Media", "mute"),
+    "browse_volume_hold": ("Volume (hold and move your hand)", "VolumeHold", "hold"),
     "browse_tab_close": ("Close tab (hold)", "Browser", "tab_close"),
     "browse_tab_reopen": ("Reopen closed tab", "Browser", "tab_reopen"),
     "browse_tab_next": ("Next tab", "Browser", "tab_next"),
@@ -103,6 +114,10 @@ COMMANDS = {
     "play_pause": ("media", "play_pause"),
     "next": ("media", "next"),
     "previous": ("media", "previous"),
+    "mute": ("media", "mute"),
+    # Volume keys, a few steps at a time (each step is about 2%).
+    "volume_up": ("volume", 5),
+    "volume_down": ("volume", -5),
     # Tabs (every major browser).
     "tab_close": ("keys", ["ctrl", "w"]),
     "tab_reopen": ("keys", ["ctrl", "shift", "t"]),
@@ -180,6 +195,10 @@ class BrowseMediaController:
 
         if kind == "wheel":
             self.input.scroll(what * self.wheel_notches() * WHEEL_DELTA)
+            return
+
+        if kind == "volume":
+            self.input.volume(what)
             return
 
         if kind == "media":

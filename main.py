@@ -1113,6 +1113,10 @@ class MainWindow(QMainWindow):
             self._on_hold_progress
         )
 
+        self.gesture_worker.volume_requested.connect(
+            self._on_volume
+        )
+
         if self.gesture_context == "custom":
             self.custom_page.set_gesture_control_running(
                 True,
@@ -1511,6 +1515,26 @@ class MainWindow(QMainWindow):
             self._gesture_feedback(label or "Holding: move up or down to scroll")
             if label:
                 self.feedback.info(label)
+
+    @Slot(int, str)
+    def _on_volume(self, steps, direction):
+        """The worker asks to change the volume (live, while held)."""
+
+        if steps:
+            try:
+                self.desktop_input.volume(steps)
+            except (InputUnavailable, OSError) as e:
+                if not self._scroll_error_shown:
+                    self._scroll_error_shown = True
+                    self._gesture_feedback(f"⚠ Can't change the volume: {e}", ERROR)
+                    self.feedback.failed("Volume", str(e))
+                return
+            return
+
+        label = {"up": "Volume up 🔊", "down": "Volume down 🔉"}.get(direction)
+        self._gesture_feedback(label or "Holding: move up or down to change the volume")
+        if label:
+            self.feedback.info(label)
 
     @Slot(str, float)
     def _on_hold_progress(self, name, progress):
