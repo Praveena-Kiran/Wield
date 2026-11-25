@@ -13,6 +13,9 @@ name and the event it becomes: (name, action, value).
                typed into another app
     "Media"    Windows media keys: work in the background and in any player
                (Spotify, VLC, a browser tab)
+
+Closing tabs by name or website ("close all YouTube tabs") would need a
+browser extension; it's a possible follow-up.
 """
 
 from backend.automation.controllers.desktop_input import DesktopInput
@@ -33,6 +36,10 @@ ACTIONS = [
     "browse_media_play_pause",
     "browse_media_next",
     "browse_media_previous",
+    "browse_tab_close",
+    "browse_tab_reopen",
+    "browse_tab_next",
+    "browse_tab_previous",
 ]
 
 PROFILE_ACTIONS = {
@@ -45,10 +52,18 @@ PROFILE_ACTIONS = {
     "browse_media_play_pause": ("Play / pause music (any app)", "Media", "play_pause"),
     "browse_media_next": ("Next track", "Media", "next"),
     "browse_media_previous": ("Previous track", "Media", "previous"),
+    "browse_tab_close": ("Close tab (hold)", "Browser", "tab_close"),
+    "browse_tab_reopen": ("Reopen closed tab", "Browser", "tab_reopen"),
+    "browse_tab_next": ("Next tab", "Browser", "tab_next"),
+    "browse_tab_previous": ("Previous tab", "Browser", "tab_previous"),
 }
 
-# Actions that only run after the pose is held this many seconds.
-HOLD_SECONDS = {}
+# Actions that only run after the pose is held this many seconds, with a
+# bar filling up on screen (backend/gestures/hold.py). Closing a tab must
+# never happen by accident.
+HOLD_SECONDS = {
+    "browse_tab_close": 1.0,
+}
 
 # value -> ("keys", [keys for the browser in front]) or ("media", media key)
 COMMANDS = {
@@ -62,6 +77,11 @@ COMMANDS = {
     "play_pause": ("media", "play_pause"),
     "next": ("media", "next"),
     "previous": ("media", "previous"),
+    # Tabs (every major browser).
+    "tab_close": ("keys", ["ctrl", "w"]),
+    "tab_reopen": ("keys", ["ctrl", "shift", "t"]),
+    "tab_next": ("keys", ["ctrl", "tab"]),
+    "tab_previous": ("keys", ["ctrl", "shift", "tab"]),
 }
 
 

@@ -1109,6 +1109,10 @@ class MainWindow(QMainWindow):
             self._on_scroll
         )
 
+        self.gesture_worker.hold_progress.connect(
+            self._on_hold_progress
+        )
+
         if self.gesture_context == "custom":
             self.custom_page.set_gesture_control_running(
                 True,
@@ -1507,6 +1511,28 @@ class MainWindow(QMainWindow):
             self._gesture_feedback(label or "Holding: move up or down to scroll")
             if label:
                 self.feedback.info(label)
+
+    @Slot(str, float)
+    def _on_hold_progress(self, name, progress):
+        """Show the bar of a held action (e.g. closing a tab) as it fills."""
+
+        name = name.replace(" (hold)", "")
+
+        if progress <= 0:
+            self._gesture_feedback(f"{name}: cancelled", None)
+            if self.feedback.overlay.kind == "info":
+                self.feedback.overlay.clear()
+            return
+
+        if progress >= 1:
+            return      # the action runs now and reports itself
+
+        steps = 10
+        filled = int(progress * steps)
+        bar = "▰" * filled + "▱" * (steps - filled)
+        text = f"Keep holding: {name}  {bar}"
+        self._gesture_feedback(text)
+        self.feedback.info(text, sticky=True)
 
     def _on_presentation_bindings_changed(
         self

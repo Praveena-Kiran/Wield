@@ -186,6 +186,79 @@ class VideoAndMediaTests(unittest.TestCase):
         self.assertEqual(api.keys, [[VK["k"]], [0xB0]])
 
 
+class TabTests(unittest.TestCase):
+
+    def test_tab_shortcuts_in_a_browser(self):
+        from backend.automation.browse_media import BrowseMediaController
+        api = FakeWinApi("brave.exe")
+        c = BrowseMediaController(DesktopInput(api))
+        for command in ("tab_close", "tab_reopen", "tab_next", "tab_previous"):
+            c.execute(command)
+        self.assertEqual(api.keys, [
+            [0x11, ord("W")],
+            [0x11, 0x10, ord("T")],
+            [0x11, 0x09],
+            [0x11, 0x10, 0x09],
+        ])
+
+    def test_tabs_are_never_closed_in_other_apps(self):
+        from backend.automation.browse_media import BrowseMediaController, NotInBrowser
+        api = FakeWinApi("code.exe")   # Ctrl+W would close a file in VS Code
+        with self.assertRaises(NotInBrowser):
+            BrowseMediaController(DesktopInput(api)).execute("tab_close")
+        self.assertEqual(api.keys, [])
+
+    def test_closing_a_tab_needs_a_hold(self):
+        from backend.automation.events import profile_events
+        events = profile_events({"gesture_map": {"✊ Fist": "browse_tab_close",
+                                                 "☝️ Pointing Up": "browse_tab_next"}})
+        close = next(e for e in events if e["value"] == "tab_close")
+        nxt = next(e for e in events if e["value"] == "tab_next")
+        self.assertEqual(close["hold_seconds"], 1.0)
+        self.assertNotIn("hold_seconds", nxt)
+
+
+class HoldTrackerTests(unittest.TestCase):
+
+    def tracker(self):
+        from backend.gestures.hold import HoldTracker
+        return HoldTracker([
+            {"name": "Close tab", "gesture": "✊ Fist", "action": "Browser",
+             "value": "tab_close", "hold_seconds": 1.0},
+            {"name": "Next tab", "gesture": "☝️ Pointing Up", "action": "Browser",
+             "value": "tab_next"},
+        ])
+
+    def test_fires_once_after_the_full_hold_with_progress(self):
+        t = self.tracker()
+        progress, fired = [], []
+        for i in range(30):                       # 1.45 s at 20 fps
+            for name, p, event in t.update("✊ Fist", i * 0.05):
+                progress.append(p)
+                if event:
+                    fired.append(event["value"])
+        self.assertEqual(fired, ["tab_close"])
+        self.assertEqual(progress[0], 0.0)
+        self.assertTrue(all(a <= b for a, b in zip(progress, progress[1:])))
+
+    def test_letting_go_early_cancels(self):
+        t = self.tracker()
+        for i in range(10):                       # 0.45 s
+            t.update("✊ Fist", i * 0.05)
+        updates = t.update(None, 0.5)
+        self.assertEqual(updates, [("Close tab", 0.0, None)])
+        # Holding again starts from zero.
+        self.assertEqual(t.update("✊ Fist", 0.6)[0][1], 0.0)
+
+    def test_must_release_before_firing_again(self):
+        t = self.tracker()
+        fired = [e for i in range(60) for _, _, e in t.update("✊ Fist", i * 0.05) if e]
+        self.assertEqual(len(fired), 1)
+
+    def test_ordinary_poses_are_ignored(self):
+        self.assertEqual(self.tracker().update("☝️ Pointing Up", 0.0), [])
+
+
 class ProfileTests(unittest.TestCase):
 
     def test_default_profile_and_events(self):
@@ -257,6 +330,21 @@ class WorkerScrollTests(unittest.TestCase):
             self.worker._scroll("✌️ Peace", 0.9, i / 30)
         self.assertGreater(sum(a for a in self.scrolls if a), 0)
         self.assertEqual(events, [])
+
+    def test_close_tab_only_after_holding_the_fist(self):
+        events, progress = [], []
+        self.worker.custom_event_detected.connect(events.append)
+        self.worker.hold_progress.connect(lambda name, p: progress.append(p))
+
+        # The fist being recognised doesn't close the tab straight away...
+        self.worker._trigger("✊ Fist")
+        self.assertEqual(events, [])
+
+        # ...holding it for a second does, with the bar filling up.
+        for i in range(25):
+            self.worker._update_holds("✊ Fist", 0.9, i * 0.05)
+        self.assertEqual([e["value"] for e in events], ["tab_close"])
+        self.assertGreater(len(progress), 5)
 
     def test_other_poses_are_not_scrolling(self):
         self.hand_at(0.3)

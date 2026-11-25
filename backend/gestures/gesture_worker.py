@@ -13,6 +13,7 @@ from backend.settings import gesture_settings
 from backend.profile_manager import ProfileManager
 from backend.automation.events import events_for_gesture, profile_events
 from backend.gestures.scroll import ScrollController
+from backend.gestures.hold import HoldTracker
 
 
 class GestureWorker(QObject):
@@ -25,6 +26,9 @@ class GestureWorker(QObject):
     # Scroll the window in front by this many wheel units (+ up), and the
     # direction now ("up", "down" or "" when held still).
     scroll_requested = Signal(int, str)
+
+    # A held action filling up: (event name, 0..1). 0 = let go / cancelled.
+    hold_progress = Signal(str, float)
 
     status_changed = Signal(str)
     error = Signal(str)
@@ -114,6 +118,10 @@ class GestureWorker(QObject):
         )
         self._motions_quiet_until = 0.0
         self._scroll_direction = ""
+
+        # Deliberate actions (closing a tab): the pose must be held, with
+        # a bar filling up on screen, before they run.
+        self.holds = HoldTracker(self.events)
 
     def _open_camera(self, attempts=4, delay=0.75):
         """
@@ -213,6 +221,9 @@ class GestureWorker(QObject):
 
             if self.scroll_poses and self._scroll(gesture, confidence, now):
                 continue
+
+            if self.holds.events:
+                self._update_holds(gesture, confidence, now)
 
             # -------------------------------------------------
             # MOTIONS (swipes, waves...)
@@ -329,11 +340,26 @@ class GestureWorker(QObject):
         self._motions_quiet_until = now + 0.6
         return True
 
+    def _update_holds(self, gesture, confidence, now):
+        """Fill (or cancel) the bar of a held action; run it when full."""
+
+        pose = self._pose(gesture, confidence)
+        if self.require_arm and not self.armed:
+            pose = None
+
+        for name, progress, event in self.holds.update(pose, now):
+            self.hold_progress.emit(name, progress)
+            if event is not None:
+                if self.require_arm:
+                    self._set_armed(True)
+                print(f"🎯 Event matched: {name} (held {event['gesture']})")
+                self.custom_event_detected.emit(event)
+
     def _handle_motion(self, motion, confidence):
 
         self.gesture_detected.emit(motion, confidence)
 
-        self._trigger(motion)
+        self._trigger(motion, motion=True)
 
     # -----------------------------------------------------
     # TRIGGERING (with the optional activation gesture)
@@ -353,7 +379,7 @@ class GestureWorker(QObject):
         if self.armed and time.monotonic() > self._armed_until:
             self._set_armed(False)
 
-    def _trigger(self, gesture):
+    def _trigger(self, gesture, motion=False):
         """Run the events for a recognised gesture or motion."""
 
         self._check_arm_timeout()
@@ -379,6 +405,11 @@ class GestureWorker(QObject):
             if event.get("action") in ("App", "LensFlow"):
                 if self.require_arm:
                     self._set_armed(event.get("value") != "deactivate")
+                continue
+
+            # Held actions run from _update_holds when a pose is held long
+            # enough (a motion can't be held, so it runs straight away).
+            if event.get("hold_seconds") and not motion:
                 continue
 
             print(f"🎯 Event matched: {event.get('name')} (triggered by {gesture})")
