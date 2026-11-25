@@ -50,6 +50,8 @@ class BrowsePageTests(unittest.TestCase):
         from PySide6.QtWidgets import QPushButton, QScrollArea
         self.page.resize(1060, 700)
         self.page.show()
+        key = next(k for k, e in self.page.editors.items() if e is editor)
+        self.page.toggle_section(key)
         self.app.processEvents()
         area = [a for a in self.page.findChildren(QScrollArea) if a.objectName() == "ContentScroll"][0]
         add = editor.rows[action].findChild(QPushButton, "AddTrigger")
@@ -60,11 +62,11 @@ class BrowsePageTests(unittest.TestCase):
         return area.verticalScrollBar()
 
     def test_adding_a_trigger_does_not_move_the_page(self):
-        editor = self.page.editors["video"]
-        bar = self._scrolled_to(editor, "browse_video_back_5")
+        editor = self.page.editors["tabs"]
+        bar = self._scrolled_to(editor, "browse_page_forward")
         before = bar.value()
         self.assertGreater(before, 0)
-        editor.assign("👎 Thumbs Down", "browse_video_back_5")
+        editor.assign("Swipe up", "browse_page_forward")
         for _ in range(5):
             self.app.processEvents()
         self.assertEqual(bar.value(), before)
@@ -77,6 +79,35 @@ class BrowsePageTests(unittest.TestCase):
         for _ in range(5):
             self.app.processEvents()
         self.assertEqual(bar.value(), before)
+
+    def test_sections_start_closed_and_open_one_at_a_time(self):
+        bodies = {k: v[1] for k, v in self.page.sections.items()}
+        self.page.show()
+        self.assertFalse(any(b.isVisible() for b in bodies.values()))
+        self.page.toggle_section("video")
+        self.assertTrue(bodies["video"].isVisible())
+        self.page.toggle_section("music")
+        self.assertTrue(bodies["music"].isVisible())
+        self.assertFalse(bodies["video"].isVisible())
+        self.page.toggle_section("music")
+        self.assertFalse(bodies["music"].isVisible())
+
+    def test_summaries_say_what_each_section_does(self):
+        summary = self.page.sections["video"][3].text()
+        self.assertIn("👍 play / pause video", summary)
+        self.page.editors["video"].assign("☝️ Pointing Up", "browse_video_fullscreen")
+        self.assertIn("☝️", self.page.sections["video"][3].text())
+
+    def test_empty_actions_are_tucked_away(self):
+        editor = self.page.editors["video"]
+        self.page.show()
+        self.page.toggle_section("video")
+        self.assertFalse(editor.rows["browse_video_back_5"].isVisible())   # nothing assigned
+        self.assertTrue(editor.rows["browse_video_back"].isVisible())
+        self.assertIn("2 more", editor.more_button.text())
+        editor.more_button.click()
+        self.app.processEvents()
+        self.assertTrue(editor.rows["browse_video_back_5"].isVisible())
 
     def test_moving_a_trigger_between_sections_updates_both(self):
         changes = []

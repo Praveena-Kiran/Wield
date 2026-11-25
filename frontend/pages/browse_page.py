@@ -11,6 +11,8 @@ Word or a PDF, because that's where the gestures are used.
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QSizePolicy,
+    QWidget,
     QCheckBox,
     QFrame,
     QHBoxLayout,
@@ -99,13 +101,31 @@ class BrowsePage(StudioPage):
                 border: 1px solid {BORDER}; background: {SURFACE};
             }}
             QCheckBox::indicator:checked {{ background: {PRIMARY}; border: 1px solid {PRIMARY}; }}
-            QFrame#Card QLabel#SectionBadge {{
+            QFrame#Section {{
+                background-color: {SURFACE};
+                border: 1px solid {BORDER};
+                border-radius: 16px;
+            }}
+            QFrame#Section[open="true"] {{ border: 1px solid {PRIMARY}; }}
+            QFrame#Section QLabel {{ background: transparent; border: none; }}
+            QWidget#SectionBody {{ background: transparent; }}
+            QPushButton#SectionHead {{
+                background: transparent; border: none; border-radius: 16px; text-align: left;
+            }}
+            QPushButton#SectionHead:hover {{ background: {OVERLAY_1}; }}
+            QPushButton#SettingsLink {{
+                background: transparent; border: none; color: {SECONDARY_TEXT};
+                font-size: 12px; font-weight: 600; padding: 2px 0;
+            }}
+            QPushButton#SettingsLink:hover {{ color: {PRIMARY}; }}
+            QFrame#Section QLabel#SectionBadge, QFrame#Card QLabel#SectionBadge {{
                 background: {OVERLAY_2}; color: {PRIMARY}; border-radius: 19px;
                 font-size: 17px; font-weight: 700;
             }}
         """)
 
         self.editors = {}
+        self.sections = {}
 
         self.content_layout.addWidget(self._build_session())
         for section in browse_media.SECTIONS:
@@ -172,12 +192,6 @@ class BrowsePage(StudioPage):
         row.addWidget(self.start_button)
         layout.addLayout(row)
 
-        layout.addWidget(self._label(
-            "Press Start, then go to your browser, PDF or document and use "
-            "any gesture, motion or phrase below. Every one can be changed: "
-            "+ to add, ✕ to remove.",
-            TEXT_MUTED, 12,
-        ))
         return frame
 
     def _scroll_options(self):
@@ -214,29 +228,71 @@ class BrowsePage(StudioPage):
         return row
 
     def _build_section(self, key, title, icon, where, actions):
-        """One card per kind of control: its title, where it works, its triggers."""
+        """
+        A section that opens and closes: closed, one line says what it does
+        now; open, its actions in compact rows (empty ones tucked away).
+        Only one section is open at a time.
+        """
 
-        frame, layout = self._card()
-        frame.setObjectName("Card")
+        frame = QFrame()
+        frame.setObjectName("Section")
         frame.setProperty("section", key)
-        layout.setSpacing(12)
+        outer = QVBoxLayout(frame)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        head = QHBoxLayout()
-        head.setSpacing(12)
+        # Header: the whole line is the button.
+        head = QPushButton()
+        head.setObjectName("SectionHead")
+        head.setCursor(Qt.PointingHandCursor)
+        head.setAccessibleName(f"{title}: show or hide")
+        head.setMinimumHeight(64)
+        line = QHBoxLayout(head)
+        line.setContentsMargins(16, 10, 18, 10)
+        line.setSpacing(14)
+
         badge = QLabel(icon)
         badge.setObjectName("SectionBadge")
         badge.setFixedSize(38, 38)
         badge.setAlignment(Qt.AlignCenter)
-        head.addWidget(badge, 0, Qt.AlignTop)
-        text = QVBoxLayout()
-        text.setSpacing(2)
-        text.addWidget(self._label(title, PRIMARY_TEXT, 16, 700))
-        text.addWidget(self._label(where, SECONDARY_TEXT, 12))
-        head.addLayout(text, 1)
-        layout.addLayout(head)
+        line.addWidget(badge)
+
+        name = QLabel(title)
+        name.setFixedWidth(190)
+        name.setStyleSheet(f"color: {PRIMARY_TEXT}; font-size: 15px; font-weight: 700;")
+        line.addWidget(name)
+
+        summary = QLabel()
+        summary.setStyleSheet(f"color: {SECONDARY_TEXT}; font-size: 12px;")
+        summary.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        line.addWidget(summary, 1)
+
+        chevron = QLabel("▸")
+        chevron.setStyleSheet(f"color: {SECONDARY_TEXT}; font-size: 14px;")
+        line.addWidget(chevron)
+        for label in (badge, name, summary, chevron):
+            label.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        outer.addWidget(head)
+
+        # Body: where it works, (scroll settings), the actions.
+        body = QWidget()
+        body.setObjectName("SectionBody")
+        inner = QVBoxLayout(body)
+        inner.setContentsMargins(68, 0, 18, 14)
+        inner.setSpacing(8)
+        inner.addWidget(self._label(where, TEXT_MUTED, 12))
 
         if key == "scroll":
-            layout.addLayout(self._scroll_options())
+            settings_link = QPushButton("⚙  Scroll speed")
+            settings_link.setObjectName("SettingsLink")
+            settings_link.setCursor(Qt.PointingHandCursor)
+            options = QWidget()
+            options.setLayout(self._scroll_options())
+            options.hide()
+            settings_link.clicked.connect(lambda: options.setVisible(not options.isVisible()))
+            inner.addWidget(settings_link, 0, Qt.AlignLeft)
+            inner.addWidget(options)
+            self.scroll_options = options
 
         names = _recorded_names
         editor = ActionTriggerEditor(
@@ -244,11 +300,36 @@ class BrowsePage(StudioPage):
             list(actions),
             custom_gestures=lambda: names()[0],
             custom_motions=lambda: names()[1],
+            compact=True,
+            hide_empty=True,
         )
         editor.changed.connect(lambda k=key: self._on_triggers_changed(k))
         self.editors[key] = editor
-        layout.addWidget(editor)
+        inner.addWidget(editor)
+        body.hide()
+        outer.addWidget(body)
+
+        self.sections[key] = (frame, body, chevron, summary, actions)
+        head.clicked.connect(lambda checked=False, k=key: self.toggle_section(k))
+        self._update_summary(key)
         return frame
+
+    def toggle_section(self, key):
+        """Open a section (closing the others), or close it if it's open."""
+        opening = not self.sections[key][1].isVisible()
+        for other, (frame, body, chevron, _summary, _actions) in self.sections.items():
+            open_now = opening and other == key
+            body.setVisible(open_now)
+            chevron.setText("▾" if open_now else "▸")
+            frame.setProperty("open", open_now)
+            frame.style().unpolish(frame)
+            frame.style().polish(frame)
+
+    def _update_summary(self, key):
+        _frame, _body, _chevron, summary, actions = self.sections[key]
+        text = browse_media.section_summary(self.profile.get_gesture_map(), actions)
+        summary.setText(text)
+        summary.setToolTip(text)
 
     def _record_link(self):
         record = QPushButton("Record your own gesture or motion in Gesture Studio  →")
@@ -267,6 +348,8 @@ class BrowsePage(StudioPage):
         for other, editor in self.editors.items():
             if other != key:
                 editor.refresh()
+        for section in self.sections:
+            self._update_summary(section)
         self.bindings_changed.emit()
 
     # ---------------------------------------------------------
@@ -277,6 +360,8 @@ class BrowsePage(StudioPage):
         self.profile.load(browse_media.PROFILE_NAME)
         for editor in self.editors.values():
             editor.refresh()
+        for section in self.sections:
+            self._update_summary(section)
 
     def _save(self, key, value):
         gesture_settings.save(key, value)

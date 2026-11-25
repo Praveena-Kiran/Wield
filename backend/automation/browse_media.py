@@ -290,3 +290,36 @@ class BrowseMediaController:
             )
 
         self.input.press(what)
+
+
+def _short_trigger(trigger):
+    """👍 Thumbs Up -> 👍; Swipe up stays; a phrase -> “phrase”."""
+    from backend.voice.commands import is_voice_trigger, phrase_of
+    if is_voice_trigger(trigger):
+        return f"“{phrase_of(trigger)}”"
+    first = trigger.split(" ", 1)[0]
+    return first if first and not first[0].isalnum() else trigger
+
+
+def section_summary(gesture_map, actions, limit=5):
+    """
+    One line saying what a section does right now, e.g.
+    "✌️ scroll · Swipe up scroll up · “zoom in”" (phrases speak for themselves).
+    """
+    from backend.voice.commands import is_voice_trigger
+
+    items = []
+    for action in actions:
+        triggers = [t for t, a in (gesture_map or {}).items() if a == action]
+        if not triggers:
+            continue
+        trigger = sorted(triggers, key=is_voice_trigger)[0]
+        short = _short_trigger(trigger)
+        if is_voice_trigger(trigger):
+            items.append(short)
+        else:
+            name = PROFILE_ACTIONS[action][0].split(" (")[0].lower()
+            items.append(f"{short} {name}")
+        if len(items) >= limit:
+            break
+    return " · ".join(items) if items else "Nothing set up yet"
