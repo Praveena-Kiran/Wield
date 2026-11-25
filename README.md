@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://praveena-kiran.github.io/Wield/"><b>Website</b></a> ·
-  <a href="https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-windows.zip"><b>Download for Windows</b></a> ·
+  <a href="https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-Setup.exe"><b>Download for Windows</b></a> ·
   <a href="#how-it-works">How it works</a>
 </p>
 
@@ -64,9 +64,14 @@ strict, slow or deliberate recognition should be.
 
 ## Download
 
-Get **[Wield-windows.zip](https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-windows.zip)**
-from the [latest release](https://github.com/Praveena-Kiran/Wield/releases/latest), extract it and run
-`Wield\Wield.exe`. No Python or installer needed. Requires Windows 10 or 11 and a webcam.
+Get **[Wield-Setup.exe](https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-Setup.exe)** from the
+[latest release](https://github.com/Praveena-Kiran/Wield/releases/latest) and run it. It installs for
+your user account (no admin password) with a desktop icon, a Start-menu entry and an uninstaller in
+Windows' Installed apps; running a newer setup updates Wield in place and keeps your gestures and studios.
+Requires Windows 10 or 11 and a webcam.
+
+Prefer not to install? **[Wield-windows.zip](https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-windows.zip)** is the portable version: extract it and run
+`Wield\Wield.exe`.
 
 > **"Windows protected your PC"?** Wield isn't code-signed yet, so Windows SmartScreen warns about it.
 > Click **More info → Run anyway**. Every release is built and tested by GitHub Actions from this repository.
