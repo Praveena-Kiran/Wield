@@ -171,7 +171,7 @@ class VideoAndMediaTests(unittest.TestCase):
         from backend.automation import browse_media as B
         for code in B.ACTIONS:
             name, action, value = B.PROFILE_ACTIONS[code]
-            if action in ("Scroll", "VolumeHold"):     # live, not a command
+            if action in ("Scroll", "VolumeHold", "Mouse"):     # live, not a command
                 continue
             self.assertIn(value, B.COMMANDS, code)
 

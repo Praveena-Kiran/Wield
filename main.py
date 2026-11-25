@@ -1133,6 +1133,14 @@ class MainWindow(QMainWindow):
             self._on_auto_studio
         )
 
+        self.gesture_worker.mouse_ops.connect(
+            self._on_mouse_ops
+        )
+
+        self.gesture_worker.mouse_mode_changed.connect(
+            self._on_mouse_mode
+        )
+
         if self.gesture_context == "custom":
             self.custom_page.set_gesture_control_running(
                 True,
@@ -1179,6 +1187,15 @@ class MainWindow(QMainWindow):
 
         gesture = event.get("gesture", "")
         name = event.get("name", "event")
+
+        # Hand mouse on / off: the worker moves the pointer itself.
+        if event.get("action") == "Mouse":
+            worker = self.gesture_worker
+            if worker is not None:
+                if worker.require_arm and event.get("value") == "on":
+                    worker._set_armed(True)
+                worker.request_mouse(event.get("value") == "on")
+            return
 
         # "Hey Wield, wake up / go to sleep" (hands-free mode).
         if event.get("action") in ("App", "LensFlow"):
@@ -1623,6 +1640,39 @@ class MainWindow(QMainWindow):
         self._gesture_feedback(label or "Holding: move up or down to change the volume")
         if label:
             self.feedback.info(label)
+
+    @Slot(list)
+    def _on_mouse_ops(self, ops):
+        """The hand mouse: move the pointer and press buttons."""
+        try:
+            for op in ops:
+                if op[0] == "move":
+                    self.desktop_input.move_to(op[1], op[2])
+                elif op[0] == "left_down":
+                    self.desktop_input.button("left", True)
+                elif op[0] == "left_up":
+                    self.desktop_input.button("left", False)
+                elif op[0] == "right_click":
+                    self.desktop_input.click("right")
+        except (InputUnavailable, OSError) as e:
+            if not self._scroll_error_shown:
+                self._scroll_error_shown = True
+                self._gesture_feedback(f"⚠ Hand mouse: {e}", ERROR)
+                self.feedback.failed("Hand mouse", str(e))
+            worker = self.gesture_worker
+            if worker is not None:
+                worker.request_mouse(False)
+
+    @Slot(bool)
+    def _on_mouse_mode(self, on):
+        if on:
+            text = "🖱 Hand mouse: pinch to click · ✊ hold to stop"
+            self._gesture_feedback(text)
+            self.feedback.info(text, sticky=True)
+            self.feedback.sounds.play("armed")
+        else:
+            self._gesture_feedback("Hand mouse off")
+            self.feedback.info("🖱 Hand mouse off")
 
     @Slot(str, float)
     def _on_hold_progress(self, name, progress):

@@ -88,6 +88,25 @@ class AutoWorkerTests(unittest.TestCase):
         self.assertEqual(self.ran, ["Next slide"])
         self.assertEqual(w.scroll_poses, {})
 
+    def test_hand_mouse_mode_takes_over_and_keeps_wield_awake(self):
+        from tests.test_hand_mouse import hand
+        w = self.worker
+        ops, modes = [], []
+        w.mouse_ops.connect(ops.extend)
+        w.mouse_mode_changed.connect(modes.append)
+
+        w.request_mouse(True)
+        w._set_mouse_mode(w._mouse_request)
+        self.assertEqual(modes, [True])
+        for i in range(20):
+            w.recognizer.last_image_landmarks = hand(0.4 + i * 0.01)
+            w._mouse_frame(i / 30)
+        self.assertTrue(any(op[0] == "move" for op in ops))
+        self.assertTrue(w.armed)                       # moving the mouse counts as use
+
+        w._set_mouse_mode(False)
+        self.assertEqual(modes, [True, False])
+
     def test_voice_covers_both_studios_and_wake_words(self):
         phrases = {e["gesture"] for e in self.worker.voice_events}
         self.assertIn("🎤 next slide", phrases)

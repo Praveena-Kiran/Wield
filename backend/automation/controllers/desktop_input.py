@@ -9,6 +9,9 @@ Real keyboard / mouse-wheel input on Windows, and which app is in front.
     inp.media("play_pause")      # Windows media keys (work in the background)
     inp.volume(+5)               # volume keys: 5 steps up (each about 2%)
     inp.lock()                   # lock the computer
+    inp.move_to(0.5, 0.5)        # pointer to the middle of the main screen
+    inp.button("left", True)     # left button down (False = up)
+    inp.click("right")           # a right click ("left", "right"; double=True)
 
 Everything goes through SendInput (ctypes), the same path as a real
 keyboard and mouse, so apps can't tell the difference. The Windows calls
@@ -89,6 +92,12 @@ class WinApi:
     KEYEVENTF_EXTENDEDKEY = 0x0001
     KEYEVENTF_KEYUP = 0x0002
     MOUSEEVENTF_WHEEL = 0x0800
+    MOUSEEVENTF_MOVE = 0x0001
+    MOUSEEVENTF_ABSOLUTE = 0x8000
+    MOUSE_BUTTONS = {          # (down, up)
+        "left": (0x0002, 0x0004),
+        "right": (0x0008, 0x0010),
+    }
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
     def __init__(self):
@@ -170,6 +179,19 @@ class WinApi:
         up.ki.dwFlags = self.KEYEVENTF_KEYUP
         self._send([down, self._wheel_event(amount), up])
 
+    def send_move(self, x, y):
+        """Pointer to (x, y), 0..1 across the main screen."""
+        event = self.INPUT(type=self.INPUT_MOUSE)
+        event.mi.dx = int(min(max(x, 0.0), 1.0) * 65535)
+        event.mi.dy = int(min(max(y, 0.0), 1.0) * 65535)
+        event.mi.dwFlags = self.MOUSEEVENTF_MOVE | self.MOUSEEVENTF_ABSOLUTE
+        self._send([event])
+
+    def send_button(self, button, down):
+        event = self.INPUT(type=self.INPUT_MOUSE)
+        event.mi.dwFlags = self.MOUSE_BUTTONS[button][0 if down else 1]
+        self._send([event])
+
     def lock_workstation(self):
         if not self.user32.LockWorkStation():
             raise InputUnavailable("Windows didn't lock the computer.")
@@ -241,6 +263,19 @@ class DesktopInput:
             key = VK["volume_up"] if steps > 0 else VK["volume_down"]
             for _ in range(min(abs(steps), 50)):
                 self.api.send_keys([key])
+
+    def move_to(self, x, y):
+        self.api.send_move(x, y)
+
+    def button(self, button, down):
+        if button not in ("left", "right"):
+            raise ValueError(f'Unknown mouse button "{button}".')
+        self.api.send_button(button, down)
+
+    def click(self, button="left", double=False):
+        for _ in range(2 if double else 1):
+            self.button(button, True)
+            self.button(button, False)
 
     def lock(self):
         """Lock the computer (like Win+L, which apps can't send)."""

@@ -16,6 +16,8 @@ name and the event it becomes: (name, action, value).
     "Media"    Windows media and volume keys: work in the background and in
                any player (Spotify, VLC, a browser tab)
     "VolumeHold"  like "Scroll", but moving the held hand changes the volume
+    "Mouse"    hand mouse on / off (the gesture worker moves the pointer)
+    "Click"    a click where the pointer is
     "System"   Windows itself, whatever is in front: switch app (Alt+Tab),
                show the desktop (Win+D), lock the computer
 
@@ -57,6 +59,11 @@ ACTIONS = [
     "browse_tab_previous",
     "browse_page_back",
     "browse_page_forward",
+    "browse_mouse_on",
+    "browse_mouse_off",
+    "browse_click",
+    "browse_double_click",
+    "browse_right_click",
     "browse_app_switch",
     "browse_desktop",
     "browse_lock",
@@ -81,6 +88,12 @@ SECTIONS = [
      "Chrome, Edge, Firefox or Brave in front. Closing a tab needs a one-second hold.",
      ["browse_tab_close", "browse_tab_reopen", "browse_tab_next", "browse_tab_previous",
       "browse_page_back", "browse_page_forward"]),
+    ("mouse", "Hand mouse", "➚",
+     "Any app. Point to move the pointer, pinch thumb and index to click "
+     "(pinch and move to drag), thumb and middle finger to right-click, "
+     "hold a fist for a second to stop.",
+     ["browse_mouse_on", "browse_mouse_off", "browse_click",
+      "browse_double_click", "browse_right_click"]),
     ("windows", "Windows", "⊞",
      "Any time: switch apps, show the desktop, lock the computer (hold to lock).",
      ["browse_app_switch", "browse_desktop", "browse_lock"]),
@@ -112,6 +125,11 @@ PROFILE_ACTIONS = {
     "browse_tab_previous": ("Previous tab", "Browser", "tab_previous"),
     "browse_page_back": ("Back a page", "Browser", "page_back"),
     "browse_page_forward": ("Forward a page", "Browser", "page_forward"),
+    "browse_mouse_on": ("Hand mouse on", "Mouse", "on"),
+    "browse_mouse_off": ("Hand mouse off", "Mouse", "off"),
+    "browse_click": ("Click", "Click", "left"),
+    "browse_double_click": ("Double-click", "Click", "double"),
+    "browse_right_click": ("Right-click", "Click", "right"),
     "browse_app_switch": ("Switch to the last app", "System", "app_switch"),
     "browse_desktop": ("Show the desktop", "System", "show_desktop"),
     "browse_lock": ("Lock the computer (hold)", "System", "lock"),
@@ -156,6 +174,10 @@ COMMANDS = {
     "tab_previous": ("keys", ["ctrl", "shift", "tab"]),
     "page_back": ("keys", ["alt", "left"]),
     "page_forward": ("keys", ["alt", "right"]),
+    # Mouse clicks where the pointer is (voice, while using the hand mouse).
+    "left": ("click", "left"),
+    "double": ("click", "double"),
+    "right": ("click", "right"),
     # Windows itself: any app in front.
     "app_switch": ("system_keys", ["alt", "tab"]),
     "show_desktop": ("system_keys", ["win", "d"]),
@@ -232,6 +254,13 @@ class BrowseMediaController:
 
         if kind == "wheel":
             self.input.scroll(what * self.wheel_notches() * WHEEL_DELTA)
+            return
+
+        if kind == "click":
+            if what == "double":
+                self.input.click("left", double=True)
+            else:
+                self.input.click(what)
             return
 
         if kind == "zoom":

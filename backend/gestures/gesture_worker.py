@@ -14,6 +14,7 @@ from backend.profile_manager import ProfileManager
 from backend.automation.events import events_for_gesture, profile_events
 from backend.gestures.scroll import ScrollController
 from backend.gestures.hold import HoldTracker
+from backend.gestures.hand_mouse import HandMouse
 
 
 # Hold-and-move volume: wheel units (from ScrollController) per volume step.
@@ -70,6 +71,13 @@ class GestureWorker(QObject):
 
     # A held action filling up: (event name, 0..1). 0 = let go / cancelled.
     hold_progress = Signal(str, float)
+
+    # Hand mouse: what to do with the pointer this frame, e.g.
+    # [("move", x, y), ("left_down",), ("left_up",), ("right_click",)].
+    mouse_ops = Signal(list)
+
+    # Hand mouse switched on / off (by voice, a gesture, or a held fist).
+    mouse_mode_changed = Signal(bool)
 
     # Hands-free mode switched to another studio's gestures ("presentation"
     # or "browse") because a different app came to the front.
@@ -150,6 +158,13 @@ class GestureWorker(QObject):
         )
         self._motions_quiet_until = 0.0
         self._scroll_direction = ""
+
+        # Hand mouse: while on, the hand moves the pointer and pinches
+        # click; nothing else runs. Switched from the UI thread through
+        # request_mouse(), applied at the next frame.
+        self.mouse_mode = False
+        self._mouse_request = None
+        self.hand_mouse = HandMouse()
 
         if self.custom_studio is not None:
 
@@ -322,6 +337,18 @@ class GestureWorker(QObject):
                 self._check_studio(now)
 
             # -------------------------------------------------
+            # HAND MOUSE (nothing else while it's on)
+            # -------------------------------------------------
+
+            if self._mouse_request is not None:
+                self._set_mouse_mode(self._mouse_request)
+                self._mouse_request = None
+
+            if self.mouse_mode:
+                self._mouse_frame(now)
+                continue
+
+            # -------------------------------------------------
             # LIVE SCROLLING (while the scroll pose is held)
             # -------------------------------------------------
 
@@ -390,6 +417,35 @@ class GestureWorker(QObject):
             )
 
             self._trigger(confirmed_gesture)
+
+    def request_mouse(self, on):
+        """Turn the hand mouse on or off (safe to call from the UI thread)."""
+        self._mouse_request = bool(on)
+
+    def _set_mouse_mode(self, on):
+        if on == self.mouse_mode:
+            return
+        if not on and self.hand_mouse.left_down:
+            self.mouse_ops.emit([("left_up",)])
+        self.mouse_mode = on
+        self.hand_mouse.reset()
+        self.scroller.reset()
+        self.stabilizer.update(None, 0.0)
+        self.mouse_mode_changed.emit(on)
+
+    def _mouse_frame(self, now):
+        ops = self.hand_mouse.update(self.recognizer.last_image_landmarks, now)
+        if self.recognizer.last_image_landmarks and self.require_arm:
+            self._set_armed(True)          # in use: don't fall asleep
+        if ("exit",) in ops:
+            ops = [op for op in ops if op != ("exit",)]
+            if ops:
+                self.mouse_ops.emit(ops)
+            self._set_mouse_mode(False)
+            return
+        if ops:
+            self.mouse_ops.emit(ops)
+        self._motions_quiet_until = now + 0.6
 
     def _pose(self, gesture, confidence):
         """This frame's pose (built-in or recorded), or None."""

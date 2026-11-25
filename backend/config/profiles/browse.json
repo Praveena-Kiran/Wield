@@ -41,6 +41,13 @@
         "🎤 reset zoom": "browse_zoom_reset",
         "🎤 full screen": "browse_video_fullscreen",
         "🎤 go back": "browse_page_back",
-        "🎤 go forward": "browse_page_forward"
+        "🎤 go forward": "browse_page_forward",
+        "🎤 mouse mode": "browse_mouse_on",
+        "🎤 hand mouse": "browse_mouse_on",
+        "🎤 mouse off": "browse_mouse_off",
+        "🎤 stop mouse": "browse_mouse_off",
+        "🎤 click": "browse_click",
+        "🎤 double click": "browse_double_click",
+        "🎤 right click": "browse_right_click"
     }
 }

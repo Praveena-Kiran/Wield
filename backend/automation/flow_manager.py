@@ -197,11 +197,11 @@ class FlowManager:
             # Arm/disarm is handled by the gesture worker itself.
             pass
 
-        elif action in ("Scroll", "VolumeHold"):
+        elif action in ("Scroll", "VolumeHold", "Mouse"):
             # These happen live while the pose is held (gesture worker).
             pass
 
-        elif action in ("Browser", "Media", "Wheel", "System"):
+        elif action in ("Browser", "Media", "Wheel", "System", "Click"):
             self.browse_media.execute(value)
 
         else:
