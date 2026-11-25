@@ -217,10 +217,15 @@ class GestureWorker(QObject):
 
     @property
     def voice_events(self):
-        """Everything voice can trigger (hands-free: both studios + wake words)."""
+        """
+        Everything voice can trigger: this studio's phrases (hands-free:
+        both studios' and the wake words), plus "help" everywhere.
+        """
+        from backend.cheat_sheet import HELP_EVENTS
         if not self.auto:
-            return self.events
-        return [e for events in self.studio_events.values() for e in events] + WAKE_EVENTS
+            return list(self.events) + HELP_EVENTS
+        both = [e for events in self.studio_events.values() for e in events]
+        return both + WAKE_EVENTS + HELP_EVENTS
 
     def _check_studio(self, now):
         """Hands-free mode: follow the app in front (every half second)."""

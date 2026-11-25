@@ -449,6 +449,9 @@ class MainWindow(QMainWindow):
         self.browse_page.open_gesture_studio.connect(
             lambda: self.open_live_workspace("Gesture Studio")
         )
+        self.browse_page.help_requested.connect(
+            lambda: self.show_cheat_sheet("browse")
+        )
         self.desktop_input = DesktopInput()
 
         # Hands-free mode: always watching in the background (Settings).
@@ -1188,6 +1191,11 @@ class MainWindow(QMainWindow):
         gesture = event.get("gesture", "")
         name = event.get("name", "event")
 
+        # "Hey Wield, help": what can I do here?
+        if event.get("action") == "Help":
+            self.show_cheat_sheet()
+            return
+
         # Hand mouse on / off: the worker moves the pointer itself.
         if event.get("action") == "Mouse":
             worker = self.gesture_worker
@@ -1640,6 +1648,54 @@ class MainWindow(QMainWindow):
         self._gesture_feedback(label or "Holding: move up or down to change the volume")
         if label:
             self.feedback.info(label)
+
+    def show_cheat_sheet(self, studio=None):
+        """Show (or hide) the "What can I do?" card for what's running."""
+
+        from backend import cheat_sheet
+        from backend.profile_manager import ProfileManager
+        from frontend.components.cheat_sheet import CheatSheet
+
+        if getattr(self, "_cheat_sheet", None) is None:
+            self._cheat_sheet = CheatSheet()
+
+        worker = self.gesture_worker
+        context = self.gesture_context
+        if studio is None:
+            if context == "auto" and worker is not None:
+                studio = worker.studio or "browse"
+            elif context in ("presentation", "browse", "custom"):
+                studio = context
+            else:
+                studio = "browse"
+
+        settings = gesture_settings.load()
+        wake = False        # "Hey Wield" is said once in the footer, not on every line
+
+        if studio == "custom" and worker is not None:
+            title = self.gesture_studio_name or "This studio"
+            sections = cheat_sheet.sheet_for_events(worker.events, title, wake)
+        else:
+            profile = ProfileManager()
+            profile.load(studio)
+            gesture_map = profile.get_gesture_map()
+            if studio == "presentation":
+                title = "Presentation Studio"
+                sections = cheat_sheet.sheet(gesture_map, cheat_sheet.PRESENTATION_SECTIONS, wake)
+            else:
+                title = "Browse & Media Studio"
+                sections = cheat_sheet.sheet(gesture_map, cheat_sheet.BROWSE_SECTIONS, wake)
+
+        notes = []
+        if settings["voice_wake_word"]:
+            notes.append("Start phrases with “Hey Wield”")
+        if context == "auto" and worker is not None:
+            notes.append(f"{worker.arm_gesture} wakes Wield · “Hey Wield, go to sleep” sends it to sleep")
+        if not settings["voice_enabled"]:
+            notes.append("Voice commands are off (Settings → Voice commands)")
+        notes.append("Say “Hey Wield, help” again to close")
+
+        self._cheat_sheet.toggle(f"What you can do · {title}", sections, "   ·   ".join(notes))
 
     @Slot(list)
     def _on_mouse_ops(self, ops):
@@ -2148,6 +2204,10 @@ class MainWindow(QMainWindow):
         open_action = QAction(f"Open {APP_NAME}", self)
         open_action.triggered.connect(self.show_from_tray)
         menu.addAction(open_action)
+
+        help_action = QAction("What can I do?", self)
+        help_action.triggered.connect(lambda: self.show_cheat_sheet())
+        menu.addAction(help_action)
 
         quit_action = QAction("Quit", self)
         quit_action.triggered.connect(self.quit_app)

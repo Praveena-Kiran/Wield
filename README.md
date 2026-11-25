@@ -45,6 +45,9 @@ strict, slow or deliberate recognition should be.
   - *Music & volume* (any player, even in the background): play / pause, next / previous track, volume up / down / mute.
   - *Browser tabs & pages*: next / previous / reopen tab, back / forward, and close a tab with a one-second held fist.
   - *Windows*: switch to the last app, show the desktop, lock the computer.
+- **Hands-free mode.** Turn it on in Settings and Wield watches in the background (even from the tray): make your activation gesture or say "Hey Wield, wake up", and your gestures work in any app. They follow the app in front (PowerPoint gets Presentation Studio's, everything else Browse & Media's), and Wield goes back to sleep when you stop.
+- **Hand mouse.** "Hey Wield, mouse mode": point to move the pointer, pinch thumb and index to click or drag, thumb and middle finger to right-click, hold a fist to stop.
+- **What can I do?** Say "Hey Wield, help" (or use the tray menu) for an on-screen card of every gesture, motion and phrase that works right now.
 - **Studios.** Group actions for a task. Each event opens an app, file or website, presses a hotkey, controls PowerPoint or runs a flow, triggered by a click or a gesture.
 - **Routine learning.** Wield notices what you do around the same time on most days and offers to automate it. Nothing runs until you say yes.
 - **Accessibility settings.** Strict-to-forgiving sensitivity, hold-to-trigger, and an activation gesture so ordinary hand movement never triggers anything.

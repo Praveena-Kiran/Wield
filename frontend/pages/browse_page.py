@@ -67,6 +67,9 @@ class BrowsePage(StudioPage):
     # "Record your own" link.
     open_gesture_studio = Signal()
 
+    # "What can I do?" (the cheat sheet shown over any app).
+    help_requested = Signal()
+
     def __init__(self, parent=None):
 
         super().__init__(
@@ -160,6 +163,10 @@ class BrowsePage(StudioPage):
         row.addWidget(self.camera_pill)
         self.status = self._label("", SECONDARY_TEXT, 13)
         row.addWidget(self.status, 1)
+        help_button = self._button("What can I do?")
+        help_button.setToolTip("Show your gestures and phrases on screen. Or say “Hey Wield, help”.")
+        help_button.clicked.connect(self.help_requested.emit)
+        row.addWidget(help_button)
         self.start_button = self._button("▶  Start", primary=True)
         self.start_button.clicked.connect(lambda: self.listening_requested.emit(not self.listening))
         row.addWidget(self.start_button)
