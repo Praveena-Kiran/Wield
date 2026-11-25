@@ -58,6 +58,7 @@ from frontend.pages.home import HomePage
 from frontend.pages.presentation_page import PresentationPage
 from frontend.pages.coding_page import CodingPage
 from frontend.pages.browse_page import BrowsePage
+from backend.camera import claims as camera_claims
 from backend.automation.controllers.desktop_input import DesktopInput, InputUnavailable
 from frontend.pages.gesture_page import GesturePage
 from frontend.pages.custom_page import CustomPage
@@ -110,6 +111,11 @@ sys.path.insert(
         os.path.abspath(__file__)
     )
 )
+
+
+class _CameraClaims(QObject):
+    """Carries webcam claim changes (from any thread) to the UI thread."""
+    changed = Signal(bool)
 
 
 class MainWindow(QMainWindow):
@@ -444,6 +450,12 @@ class MainWindow(QMainWindow):
             lambda: self.open_live_workspace("Gesture Studio")
         )
         self.desktop_input = DesktopInput()
+
+        # Hands-free mode: always watching in the background (Settings).
+        self._camera_claims = _CameraClaims()
+        self._camera_claims.changed.connect(self._on_camera_claims)
+        camera_claims.subscribe(self._camera_claims.changed.emit)
+        self.settings_page.hands_free_changed.connect(self.set_hands_free)
         self._scroll_error_shown = False
         self._browse_restart = QTimer(self)
         self._browse_restart.setSingleShot(True)
@@ -830,7 +842,7 @@ class MainWindow(QMainWindow):
 
             # The camera and microphone stay off until the user starts the
             # presentation (or turns them on): opening a page shouldn't.
-            if self.gesture_context != "presentation":
+            if self.gesture_context not in ("presentation", "auto"):
                 self.stop_gesture_worker()
                 self.presentation_page.set_listening(False)
 
@@ -1117,6 +1129,10 @@ class MainWindow(QMainWindow):
             self._on_volume
         )
 
+        self.gesture_worker.studio_changed.connect(
+            self._on_auto_studio
+        )
+
         if self.gesture_context == "custom":
             self.custom_page.set_gesture_control_running(
                 True,
@@ -1127,7 +1143,7 @@ class MainWindow(QMainWindow):
 
         self.gesture_thread.start()
 
-        self._start_voice(worker.events)
+        self._start_voice(worker.voice_events)
 
     def _gesture_feedback(
         self,
@@ -1152,6 +1168,9 @@ class MainWindow(QMainWindow):
             else:
                 self.browse_page.set_status(message)
 
+        elif context == "auto":
+            print(f"🖐 Hands-free: {message}")
+
     @Slot(dict)
     def _on_gesture_event(
         self,
@@ -1160,6 +1179,13 @@ class MainWindow(QMainWindow):
 
         gesture = event.get("gesture", "")
         name = event.get("name", "event")
+
+        # "Hey Wield, wake up / go to sleep" (hands-free mode).
+        if event.get("action") in ("App", "LensFlow"):
+            worker = self.gesture_worker
+            if worker is not None and worker.require_arm:
+                worker._set_armed(event.get("value") != "deactivate")
+            return
 
         now = time.monotonic()
 
@@ -1252,6 +1278,12 @@ class MainWindow(QMainWindow):
         if status == "READY" and self.gesture_context == "browse":
             self.browse_page.set_listening(True)
 
+        if self.gesture_context == "auto" and worker is not None:
+            if status == "ARMED":
+                self.home_page.set_hands_free("Hands-free: listening")
+            elif status in ("READY", "DISARMED"):
+                self.home_page.set_hands_free(f"Hands-free: {worker.arm_gesture} to wake")
+
         if status == "READY":
             message = arm_hint or "Listening for gestures…"
             if self._voice_note:
@@ -1283,6 +1315,10 @@ class MainWindow(QMainWindow):
                 False,
                 f"⚠ {message}"
             )
+        elif context == "auto":
+            # Hands-free mode stays off until the camera works again (it
+            # retries when a studio or the camera on Home gives it back).
+            self.home_page.set_hands_free("Hands-free: camera not available")
         else:
             self.gesture_context = context
             self._gesture_feedback(f"⚠ {message}", ERROR)
@@ -1294,6 +1330,11 @@ class MainWindow(QMainWindow):
     def stop_gesture_worker(
         self
     ):
+
+        # A studio (or the camera on Home) finishing gives the camera back
+        # to hands-free mode, if it's on.
+        if self.gesture_context not in (None, "auto"):
+            QTimer.singleShot(1500, self._resume_hands_free)
 
         if self.gesture_context == "presentation" or self.gesture_worker is None:
             # Keep the camera indicator honest whatever stopped it.
@@ -1462,6 +1503,53 @@ class MainWindow(QMainWindow):
                 print("📷 Camera and microphone off")
                 self.stop_gesture_worker()
             self.presentation_page.set_listening(False)
+
+    # =============================================================
+    # HANDS-FREE MODE
+    # =============================================================
+    # Always watching in the background. The activation gesture (or "Hey
+    # Wield, wake up") wakes Wield; the gestures follow the app in front
+    # (Presentation Studio's for PowerPoint, Browse & Media's otherwise);
+    # it sleeps again after a while without gestures. Any studio, the
+    # camera on Home, or the gesture recorder borrows the webcam and gives
+    # it back.
+
+    def set_hands_free(self, on):
+        if on:
+            self._resume_hands_free()
+        elif self.gesture_context == "auto":
+            self.stop_gesture_worker()
+            self.home_page.set_hands_free("")
+
+    def _resume_hands_free(self):
+        if (
+            gesture_settings.load()["hands_free"]
+            and self.gesture_worker is None
+            and not camera_claims.in_use()
+            and not self._quitting
+        ):
+            print("🖐 Hands-free mode: watching for the wake gesture")
+            self.start_gesture_worker("auto")
+            if self.gesture_worker is None:
+                self.home_page.set_hands_free("")
+
+    @Slot(bool)
+    def _on_camera_claims(self, in_use):
+        if in_use and self.gesture_context == "auto":
+            print("🖐 Hands-free mode: lending the camera")
+            self.stop_gesture_worker()
+            self.home_page.set_hands_free("Hands-free: paused")
+        elif not in_use:
+            QTimer.singleShot(1500, self._resume_hands_free)
+
+    @Slot(str)
+    def _on_auto_studio(self, studio):
+        label = {"presentation": "Presentation gestures", "browse": "Browse & Media gestures"}
+        text = label.get(studio, studio)
+        print(f"🖐 Hands-free mode: {text}")
+        worker = self.gesture_worker
+        if worker is not None and worker.armed:
+            self.feedback.info(f"🖐 {text}")
 
     # =============================================================
     # BROWSE & MEDIA STUDIO
@@ -1688,15 +1776,19 @@ class MainWindow(QMainWindow):
 
         # Keep running in the tray (so routines can fire) if the user chose
         # that, unless they picked Quit.
+        hands_free = gesture_settings.load()["hands_free"]
+
         if (
             not self._quitting
             and self.tray is not None
-            and SettingsManager().get_setting("run_in_background")
+            and (SettingsManager().get_setting("run_in_background") or hands_free)
         ):
 
             event.ignore()
 
-            self.stop_gesture_worker()
+            # Hands-free mode keeps watching from the tray; studios stop.
+            if self.gesture_context != "auto":
+                self.stop_gesture_worker()
 
             self.hide()
 
@@ -1780,6 +1872,9 @@ class MainWindow(QMainWindow):
 
         # Look for a newer version (at most once a day, in the background).
         QTimer.singleShot(5000, self.check_for_updates)
+
+        # Hands-free mode, if it's on.
+        QTimer.singleShot(2500, self._resume_hands_free)
 
     # =============================================================
     # UPDATES

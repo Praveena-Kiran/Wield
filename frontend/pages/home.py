@@ -283,10 +283,21 @@ class HomePage(QWidget):
         self.greeting_label.setText(f"{greeting(now)}, {name}" if name else greeting(now))
 
     def _set_camera_pill(self, on):
+        self._fog_camera_on = on
+        if not on and getattr(self, "hands_free_text", None):
+            self.camera_pill.setText(
+                f'<span style="color:{SUCCESS};">●</span>&nbsp; {self.hands_free_text}'
+            )
+            return
         dot = SUCCESS if on else TEXT_MUTED
         self.camera_pill.setText(
             f'<span style="color:{dot};">●</span>&nbsp; Camera {"on" if on else "off"}'
         )
+
+    def set_hands_free(self, text):
+        """Show hands-free mode's state in the header pill ("" = off)."""
+        self.hands_free_text = text
+        self._set_camera_pill(getattr(self, "_fog_camera_on", False))
 
     # -----------------------------------------------------
     # YOUR WINDOW + TODAY

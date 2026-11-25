@@ -77,6 +77,9 @@ class SettingsPage(StudioPage):
     # "Show welcome again" (About section).
     welcome_requested = Signal()
 
+    # Hands-free mode switched on or off.
+    hands_free_changed = Signal(bool)
+
     # "Check for updates now" (About section); the main window answers
     # with show_update_result().
     update_check_requested = Signal()
@@ -133,6 +136,8 @@ class SettingsPage(StudioPage):
         self._build_you()
 
         self._build_appearance()
+
+        self._build_hands_free()
 
         self._build_window()
 
@@ -503,6 +508,45 @@ class SettingsPage(StudioPage):
         box.layout().addLayout(self.restart_row)
 
         self._show_restart(saved != theme_module.THEME_NAME)
+
+    # -----------------------------------------------------
+    # HANDS-FREE MODE
+    # -----------------------------------------------------
+
+    def _build_hands_free(self):
+
+        self._section("Hands-free mode")
+
+        self.hands_free = QCheckBox("Always watch for my wake gesture")
+        self.hands_free.setChecked(self.settings["hands_free"])
+        self.hands_free.toggled.connect(self._on_hands_free)
+        self._row(
+            None,
+            f"No need to open a studio: make your activation gesture "
+            f"({self.settings['arm_gesture']}, set under Activation gesture) or say "
+            "“Hey Wield, wake up”, and use your gestures in any app. Wield uses "
+            "Presentation Studio's gestures when PowerPoint is in front and Browse "
+            "& Media's everywhere else, and goes back to sleep after a while "
+            "without gestures (“Hey Wield, go to sleep” does it straight away). "
+            "Your camera stays on while this is on, and closing the window keeps "
+            "Wield running in the tray.",
+            self.hands_free,
+        )
+
+        self.hands_free_timeout = self._choices(
+            "hands_free_timeout",
+            [(seconds, f"{seconds} s") for seconds in gesture_settings.HANDS_FREE_TIMEOUTS],
+            "Sleep after",
+        )
+        self._row("Go back to sleep after", None, self.hands_free_timeout)
+
+    def _on_hands_free(self, checked):
+        self._save("hands_free", bool(checked))
+        self.hands_free_changed.emit(bool(checked))
+        self.status_label.setText(
+            "Status: Hands-free mode on. Make your activation gesture to wake Wield."
+            if checked else "Status: Hands-free mode off."
+        )
 
     # -----------------------------------------------------
     # YOUR WINDOW (the fog on Home)

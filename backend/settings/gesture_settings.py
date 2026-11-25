@@ -19,6 +19,10 @@ Stored in the user's settings.json (via SettingsManager):
     fog_stroke        "thin" | "medium" | "thick"  pen size on the window
     browse_scroll_speed     "slow" | "medium" | "fast"  gesture scrolling
     browse_scroll_by_height bool  hand height sets the scroll speed
+    hands_free          bool  always watching in the background; the
+                        activation gesture wakes Wield, and the gestures
+                        follow the app in front
+    hands_free_timeout  seconds without gestures before it sleeps again
 
 thresholds() turns these into the numbers the matchers use.
 """
@@ -40,7 +44,11 @@ DEFAULTS = {
     "fog_stroke": "medium",
     "browse_scroll_speed": "medium",
     "browse_scroll_by_height": True,
+    "hands_free": False,
+    "hands_free_timeout": 30,
 }
+
+HANDS_FREE_TIMEOUTS = [15, 30, 60, 120]
 
 SCROLL_SPEEDS = ("slow", "medium", "fast")
 
@@ -79,6 +87,11 @@ def load():
     if values["browse_scroll_speed"] not in SCROLL_SPEEDS:
         values["browse_scroll_speed"] = DEFAULTS["browse_scroll_speed"]
     values["browse_scroll_by_height"] = bool(values["browse_scroll_by_height"])
+    values["hands_free"] = bool(values["hands_free"])
+    try:
+        values["hands_free_timeout"] = max(5, int(values["hands_free_timeout"]))
+    except (TypeError, ValueError):
+        values["hands_free_timeout"] = DEFAULTS["hands_free_timeout"]
 
     return values
 

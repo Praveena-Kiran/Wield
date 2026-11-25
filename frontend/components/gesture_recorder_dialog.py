@@ -108,6 +108,11 @@ class CameraPreviewWorker(QObject):
         # Separate from `running` so stop() before run() starts still counts.
         self._stop_requested = False
 
+        # Ask hands-free mode to let go of the webcam while this uses it.
+        from backend.camera import claims
+        claims.take(self)
+        self.finished.connect(lambda: claims.give_back(self))
+
     @Slot()
     def run(self):
 
@@ -127,7 +132,15 @@ class CameraPreviewWorker(QObject):
             self.finished.emit()
             return
 
-        camera = cv2.VideoCapture(self.camera_index)
+        # Another part of Wield (hands-free mode) may still be releasing the
+        # webcam: try a few times before giving up.
+        camera = None
+        for attempt in range(5):
+            camera = cv2.VideoCapture(self.camera_index)
+            if camera.isOpened() or self._stop_requested:
+                break
+            camera.release()
+            time.sleep(0.6)
 
         if self._stop_requested:
             camera.release()

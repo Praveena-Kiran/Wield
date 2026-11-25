@@ -19,6 +19,39 @@ from backend.gestures.hold import HoldTracker
 # Hold-and-move volume: wheel units (from ScrollController) per volume step.
 VOLUME_UNITS_PER_STEP = 300
 
+# Hands-free mode ("auto"): which built-in studio's gestures to use for the
+# app in front. Anything not listed uses Browse & Media.
+AUTO_STUDIOS = {
+    "powerpnt.exe": "presentation",
+    "pptview.exe": "presentation",
+}
+AUTO_DEFAULT = "browse"
+AUTO_CHECK_SECONDS = 0.5
+
+# Hands-free voice phrases that wake Wield up or send it back to sleep.
+WAKE_EVENTS = [
+    {"name": "Wake up", "gesture": "🎤 wake up", "action": "App", "value": "activate"},
+    {"name": "Wake up", "gesture": "🎤 start watching", "action": "App", "value": "activate"},
+    {"name": "Go to sleep", "gesture": "🎤 go to sleep", "action": "App", "value": "deactivate"},
+    {"name": "Go to sleep", "gesture": "🎤 stop watching", "action": "App", "value": "deactivate"},
+]
+
+
+def studio_for_app(process_name):
+    """Hands-free mode: the studio whose gestures fit the app in front."""
+    return AUTO_STUDIOS.get((process_name or "").lower(), AUTO_DEFAULT)
+
+
+def _load_profile(name):
+    manager = ProfileManager()
+    manager.load(name)
+    return manager.current_profile
+
+
+def _desktop_foreground():
+    from backend.automation.controllers.desktop_input import DesktopInput
+    return DesktopInput().foreground_process
+
 
 class GestureWorker(QObject):
 
@@ -38,6 +71,10 @@ class GestureWorker(QObject):
     # A held action filling up: (event name, 0..1). 0 = let go / cancelled.
     hold_progress = Signal(str, float)
 
+    # Hands-free mode switched to another studio's gestures ("presentation"
+    # or "browse") because a different app came to the front.
+    studio_changed = Signal(str)
+
     status_changed = Signal(str)
     error = Signal(str)
 
@@ -47,11 +84,17 @@ class GestureWorker(QObject):
     def __init__(
         self,
         profile_name="presentation",
-        custom_studio=None
+        custom_studio=None,
+        foreground=None,
     ):
         super().__init__()
 
         self.profile_name = profile_name
+
+        # Hands-free mode: always watching, woken by the activation gesture,
+        # with the gestures of the studio that fits the app in front.
+        self.auto = profile_name == "auto"
+        self._foreground = foreground
         self.custom_studio = custom_studio
         self.running = False
 
@@ -84,9 +127,11 @@ class GestureWorker(QObject):
 
         # Activation ("arm") gesture: when required, nothing runs until it
         # is made, and Wield switches off after arm_timeout idle seconds.
-        self.require_arm = self.settings["require_arm"]
+        self.require_arm = self.settings["require_arm"] or self.auto
         self.arm_gesture = self.settings["arm_gesture"]
-        self.arm_timeout = self.settings["arm_timeout"]
+        self.arm_timeout = (
+            self.settings["hands_free_timeout"] if self.auto else self.settings["arm_timeout"]
+        )
         self.armed = False
         self._armed_until = 0.0
 
@@ -97,33 +142,6 @@ class GestureWorker(QObject):
         # profile, converted to the same event format. Custom studio events
         # are the studio's own list, so edits made while running apply.
 
-        if self.custom_studio is not None:
-
-            self.events = self.custom_studio.get("events", [])
-
-        else:
-
-            profile_manager = ProfileManager()
-            profile_manager.load(profile_name)
-
-            self.events = profile_events(
-                profile_manager.current_profile
-            )
-
-        # -----------------------------------------------------
-        # LIVE SCROLLING (Browse & Media Studio)
-        # -----------------------------------------------------
-        # Poses mapped to "Scroll" (or "VolumeHold") work while held: move
-        # the hand up or down to scroll (or change the volume) instead of
-        # running once. pose -> "scroll" | "volume"
-
-        hold_and_move = {"Scroll": "scroll", "VolumeHold": "volume"}
-        self.scroll_poses = {
-            event["gesture"]: hold_and_move[event["action"]]
-            for event in self.events
-            if event.get("action") in hold_and_move and event.get("gesture")
-        }
-        self.events = [e for e in self.events if e.get("action") not in hold_and_move]
         self._moving = None              # "scroll" / "volume" while held
         self._volume_units = 0.0
         self.scroller = ScrollController(
@@ -133,9 +151,80 @@ class GestureWorker(QObject):
         self._motions_quiet_until = 0.0
         self._scroll_direction = ""
 
+        if self.custom_studio is not None:
+
+            events = self.custom_studio.get("events", [])
+
+        elif self.auto:
+
+            # Both built-in studios, switched by the app in front.
+            self.studio_events = {
+                name: profile_events(_load_profile(name))
+                for name in ("presentation", "browse")
+            }
+            self.studio = None
+            self._last_studio_check = -1e9
+            events = self.studio_events[AUTO_DEFAULT]
+
+        else:
+
+            events = profile_events(_load_profile(profile_name))
+
+        self._use_events(events)
+
+    def _use_events(self, events):
+        """
+        Set the events to run. Poses mapped to "Scroll" (or "VolumeHold")
+        work while held instead (move the hand up or down to scroll, or
+        change the volume), and some actions need a held pose first.
+        """
+
+        hold_and_move = {"Scroll": "scroll", "VolumeHold": "volume"}
+
+        # pose -> "scroll" | "volume"
+        self.scroll_poses = {
+            event["gesture"]: hold_and_move[event["action"]]
+            for event in events
+            if event.get("action") in hold_and_move and event.get("gesture")
+        }
+        if self.scroll_poses or any(e.get("action") in hold_and_move for e in events):
+            self.events = [e for e in events if e.get("action") not in hold_and_move]
+        else:
+            # The same list object, so edits to a running custom studio apply.
+            self.events = events
+
         # Deliberate actions (closing a tab): the pose must be held, with
         # a bar filling up on screen, before they run.
         self.holds = HoldTracker(self.events)
+
+        self.scroller.reset()
+        self._moving = None
+
+    @property
+    def voice_events(self):
+        """Everything voice can trigger (hands-free: both studios + wake words)."""
+        if not self.auto:
+            return self.events
+        return [e for events in self.studio_events.values() for e in events] + WAKE_EVENTS
+
+    def _check_studio(self, now):
+        """Hands-free mode: follow the app in front (every half second)."""
+
+        if now - self._last_studio_check < AUTO_CHECK_SECONDS:
+            return
+        self._last_studio_check = now
+
+        try:
+            if self._foreground is None:
+                self._foreground = _desktop_foreground()
+            studio = studio_for_app(self._foreground())
+        except Exception:  # noqa: BLE001 - keep the current one
+            return
+
+        if studio != self.studio:
+            self.studio = studio
+            self._use_events(self.studio_events[studio])
+            self.studio_changed.emit(studio)
 
     def _open_camera(self, attempts=4, delay=0.75):
         """
@@ -228,6 +317,9 @@ class GestureWorker(QObject):
             )
 
             now = time.monotonic()
+
+            if self.auto:
+                self._check_studio(now)
 
             # -------------------------------------------------
             # LIVE SCROLLING (while the scroll pose is held)
