@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wield: control your computer with your hands and voice</title>
-<meta name="description" content="Wield is a free Windows app that lets you control your computer and PowerPoint with hand gestures, moves you draw in the air, and offline voice commands. Everything runs on your computer.">
+<meta name="description" content="Wield is a free Windows app that lets you control your computer, PowerPoint, YouTube and music with hand gestures, moves you draw in the air, and offline voice commands. Everything runs on your computer.">
 <meta property="og:title" content="Wield: control your computer with your hands and voice">
 <meta property="og:description" content="Gestures, moves and voice commands you choose. Free for Windows. Everything runs on your computer.">
 <meta property="og:image" content="images/home-galaxy.webp">
@@ -205,6 +205,32 @@
   .themes .frame { border-width: 4px; border-radius: var(--r-md); }
   .themes figcaption { display: inline-block; margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
 
+  /* Real life: one afternoon, step by step */
+  .story { display: grid; grid-template-columns: 4fr 7fr; gap: 48px; align-items: start; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 44px; }
+  .story .scene .emoji { font-size: 56px; line-height: 1; display: block; margin-bottom: 16px; }
+  .story .scene h3 { font-size: clamp(26px, 3vw, 34px); letter-spacing: -0.015em; line-height: 1.1; margin: 0 0 12px; }
+  .story .scene p { color: var(--ink-2); margin: 0 0 12px; }
+  .story .scene .setup { font-size: 15px; color: var(--muted); }
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; position: relative; }
+  .timeline::before { content: ""; position: absolute; left: 27px; top: 28px; bottom: 28px; border-left: 2px dashed var(--line); }
+  .timeline li { display: grid; grid-template-columns: 56px 1fr; gap: 18px; align-items: start; padding: 10px 0; position: relative; }
+  .timeline .do { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: var(--lilac); border: 4px solid var(--paper); position: relative; z-index: 1; }
+  .timeline li:nth-child(2) .do { background: var(--peach); }
+  .timeline li:nth-child(3) .do { background: var(--mint); }
+  .timeline li:nth-child(4) .do { background: var(--butter); }
+  .timeline li:nth-child(5) .do { background: var(--sky); }
+  .timeline .time { font-size: 13px; font-weight: 700; color: var(--violet-ink); letter-spacing: .02em; }
+  .timeline h4 { margin: 2px 0 4px; font-size: 19px; letter-spacing: -0.01em; }
+  .timeline p { margin: 0; color: var(--ink-2); font-size: 16px; }
+  .timeline .say { display: inline-block; margin-top: 6px; padding: 4px 12px; border-radius: 14px 14px 14px 4px; background: var(--night-2); color: var(--on-night); font-size: 14px; }
+  .timeline .say b { color: #B6A7FF; }
+  .uses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+  .uses > div { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px; }
+  .uses .emoji { font-size: 30px; display: block; margin-bottom: 10px; }
+  .uses h3 { margin: 0 0 6px; font-size: 19px; letter-spacing: -0.01em; }
+  .uses p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .sheet-shot { border-radius: var(--r-lg); box-shadow: var(--shadow); }
+
   /* How it works: a single rounded strip */
   .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-xl); overflow: hidden; }
   .flow > div { padding: 32px 30px; position: relative; }
@@ -257,6 +283,8 @@
   a:focus-visible, summary:focus-visible, .btn:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; border-radius: 999px; }
 
   @media (max-width: 960px) {
+    .story { grid-template-columns: 1fr; gap: 28px; padding: 32px 24px; }
+    .uses { grid-template-columns: 1fr 1fr; }
     .bento { grid-template-columns: 1fr 1fr; }
     .t-gest, .t-voice, .t-studio { grid-column: span 2; }
     .t-move, .t-access, .t-private, .t-routine { grid-column: span 1; }
@@ -282,6 +310,8 @@
     .stage .shot { order: 0; transform: none; border-width: 4px; }
     .sticker { position: relative; inset: auto; transform: none; margin: 10px auto 0; animation: none; order: 1; font-size: 14px; }
     .install { margin: 0 8px; padding: 40px 20px; border-radius: 28px; }
+    .uses { grid-template-columns: 1fr; }
+    .story { padding: 26px 18px; }
     .bubble + .bubble { margin-left: 0; }
     .tilt-l, .tilt-r { transform: none; }
     .maker { border-radius: 24px; }
@@ -301,6 +331,7 @@
     <a class="brand" href="#top"><img src="images/icon.png" alt="" width="30" height="30">Wield</a>
     <div class="links">
       <a href="#features">Features</a>
+      <a href="#real-life">Real life</a>
       <a href="#how">How it works</a>
       <a href="#faq">FAQ</a>
       <a href="https://github.com/Praveena-Kiran/Wield">GitHub</a>
@@ -364,7 +395,7 @@
       </div>
       <div class="tile t-private">
         <h3>Private, always</h3>
-        <p>The camera and mic stay off until you press Start. Video and speech are processed on your computer and never recorded.</p>
+        <p>The camera and mic stay off until you press Start or turn on hands-free mode. Video and speech are processed on your computer and never recorded.</p>
       </div>
       <div class="tile t-studio">
         <h3>Studios for everything</h3>
@@ -396,6 +427,33 @@
     </div>
     <div class="row flip">
       <div class="text">
+        <p class="kicker">Browse &amp; Media Studio</p>
+        <h3>Scroll, pause and skip without touching anything</h3>
+        <p>YouTube, Spotify, articles, PDFs: control them with a gesture or a word, from across the room.</p>
+        <ul class="ticks">
+          <li>👍 pauses a video, a swipe jumps 10 seconds, ✌️ and a move of your hand scrolls.</li>
+          <li>“Hey Wield, louder”, “next track”, “close tab”, “show desktop”.</li>
+          <li>Each section opens on its own, so it never feels cluttered.</li>
+        </ul>
+      </div>
+      <div class="frame tilt-l"><img src="images/browse-media-studio.webp" width="1600" height="1012" loading="lazy" alt="Browse &amp; Media Studio with the Videos section open: Thumbs Up plays and pauses, swipes jump 10 seconds, and 'full screen' is a voice command."></div>
+    </div>
+    <div class="row">
+      <div class="text">
+        <p class="kicker">New in 1.3</p>
+        <h3>Wave to wake it, in any app</h3>
+        <p>Turn on <strong>hands-free mode</strong> and Wield waits quietly in the background. Show ✋ or say “Hey Wield, wake up”, and your gestures work wherever you are.</p>
+        <ul class="ticks">
+          <li><span><strong>Hand mouse</strong>: “Hey Wield, mouse mode”, then point to move and pinch to click.</span></li>
+          <li><span><strong>“Hey Wield, help”</strong> shows every gesture and phrase on screen.</span></li>
+          <li><span>It goes back to sleep after a while, so everyday moves don't set anything off.</span></li>
+          <li><span>A proper installer with a desktop icon, and a short tour after every update.</span></li>
+        </ul>
+      </div>
+      <div><img class="sheet-shot" src="images/what-can-i-do.webp" width="1268" height="831" loading="lazy" alt="The 'What can I do?' sheet shown over any app, listing gestures and phrases for scrolling, videos, music, tabs, the hand mouse and windows."></div>
+    </div>
+    <div class="row flip">
+      <div class="text">
         <p class="kicker">Gesture Studio</p>
         <h3>Gestures that fit you</h3>
         <p>See every gesture and what it does, record your own, and test them live before you rely on them.</p>
@@ -418,6 +476,37 @@
         <figure><img class="frame" src="images/home-jungle.webp" width="1600" height="1012" loading="lazy" alt="Home in the Jungle theme"><figcaption>Jungle</figcaption></figure>
         <figure><img class="frame" src="images/home-galaxy.webp" width="1600" height="1012" loading="lazy" alt="Home in the Galaxy theme"><figcaption>Galaxy</figcaption></figure>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="real-life">
+  <div class="wrap">
+    <p class="kicker">Real life</p>
+    <h2>Flour on your hands, recipe on the screen.</h2>
+    <p class="section-lede">Here's how one afternoon goes with Wield: cooking from a YouTube recipe with the laptop on the counter.</p>
+
+    <div class="story">
+      <div class="scene">
+        <span class="emoji" aria-hidden="true">🍪</span>
+        <h3>Baking cookies from a video</h3>
+        <p>Your hands are covered in dough, and the laptop is a metre away. Normally you'd wipe your hands, tap the trackpad, then wipe it too.</p>
+        <p class="setup">Set up once: in Settings, turn on <strong>Hands-free mode</strong>. Everything below uses the gestures and phrases Wield comes with.</p>
+      </div>
+      <ol class="timeline">
+        <li><span class="do" aria-hidden="true">✋</span><div><span class="time">2:00 PM · WAKE IT</span><h4>Open your palm at the laptop</h4><p>Wield wakes up and uses Browse &amp; Media's gestures, because your browser is in front. No clicking, no studio to open.</p></div></li>
+        <li><span class="do" aria-hidden="true">👍</span><div><span class="time">2:04 PM · PAUSE</span><h4>Thumbs up while you knead</h4><p>The video pauses. Thumbs up again when you're ready to carry on.</p></div></li>
+        <li><span class="do" aria-hidden="true">👈</span><div><span class="time">2:09 PM · REWIND</span><h4>Swipe left: “how much butter?”</h4><p>The video jumps back 10 seconds so you can hear it again.</p></div></li>
+        <li><span class="do" aria-hidden="true">✌️</span><div><span class="time">2:12 PM · SCROLL</span><h4>Peace sign, then move your hand down</h4><p>Scroll down the description to the written recipe. Move further for faster.</p></div></li>
+        <li><span class="do" aria-hidden="true">🎤</span><div><span class="time">2:15 PM · VOLUME</span><h4>The mixer is loud</h4><p>Just ask. And when you're done, Wield goes back to sleep on its own, so stirring and waving don't set anything off.</p><span class="say"><b>Hey Wield,</b> louder</span></div></li>
+      </ol>
+    </div>
+
+    <div class="uses">
+      <div><span class="emoji" aria-hidden="true">🎓</span><h3>Presenting in class</h3><p>Walk around the room and change slides with 👍 and 👎, or say “Hey Wield, next slide”.</p></div>
+      <div><span class="emoji" aria-hidden="true">🍜</span><h3>A lecture over lunch</h3><p>Pause, rewind and go full screen without getting noodles on the keyboard.</p></div>
+      <div><span class="emoji" aria-hidden="true">🛋️</span><h3>From the sofa</h3><p>Laptop plugged into the TV? “Hey Wield, mouse mode”, then point and pinch to click.</p></div>
+      <div><span class="emoji" aria-hidden="true">🤲</span><h3>When typing hurts</h3><p>Record poses that are comfortable for you, or use your voice for everything.</p></div>
     </div>
   </div>
 </section>
@@ -483,7 +572,7 @@
     </details>
     <details>
       <summary>Is my camera or voice recorded?</summary>
-      <p>No. The camera and mic stay off until you start, and video and speech are processed on your computer and thrown away. Wield saves only what you choose to keep: the gestures you record (as hand-point positions, not pictures), your studios, phrases and settings.</p>
+      <p>No. The camera and mic stay off until you start a studio or turn on hands-free mode, and video and speech are processed on your computer and thrown away. Wield saves only what you choose to keep: the gestures you record (as hand-point positions, not pictures), your studios, phrases and settings.</p>
     </details>
     <details>
       <summary>What if I can't make the built-in gestures?</summary>
@@ -500,6 +589,10 @@
     <details>
       <summary>Is it free?</summary>
       <p>Yes. Wield is free to download and use for personal use. You can read the source code on GitHub, but copying or reusing it needs permission.</p>
+    </details>
+    <details>
+      <summary>How do I update or uninstall it?</summary>
+      <p>Wield tells you when there's a new version. Download the new <code>Wield-Setup.exe</code> and run it: it updates in place and keeps your gestures, studios and settings. To remove Wield, open Windows Settings, then Apps, then Installed apps.</p>
     </details>
     <details>
       <summary>Something isn't working. What do I do?</summary>
