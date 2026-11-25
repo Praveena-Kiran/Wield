@@ -184,6 +184,7 @@ class BrowsePage(StudioPage):
         self.status = self._label("", SECONDARY_TEXT, 13)
         row.addWidget(self.status, 1)
         help_button = self._button("What can I do?")
+        self.help_button = help_button
         help_button.setToolTip("Show your gestures and phrases on screen. Or say “Hey Wield, help”.")
         help_button.clicked.connect(self.help_requested.emit)
         row.addWidget(help_button)

@@ -460,6 +460,7 @@ class MainWindow(QMainWindow):
         camera_claims.subscribe(self._camera_claims.changed.emit)
         self.settings_page.hands_free_changed.connect(self.set_hands_free)
         self.settings_page.studios_restored.connect(self.home_page.refresh_studios)
+        self.settings_page.tour_requested.connect(lambda: self.start_tour("full"))
         self.home_page.studio_removed.connect(self._on_studio_removed)
         self._scroll_error_shown = False
         self._browse_restart = QTimer(self)
@@ -2063,8 +2064,8 @@ class MainWindow(QMainWindow):
         if not self.isVisible():
             return  # started in the tray; the badge waits for them
 
-        if self._welcome_open or needs_welcome():
-            return  # not on top of (or before) the welcome
+        if self._welcome_open or needs_welcome() or getattr(self, "_tour", None):
+            return  # not on top of (or before) the welcome or the tour
 
         for suggestion in self._pending_suggestions():
 
@@ -2119,6 +2120,149 @@ class MainWindow(QMainWindow):
     def _maybe_welcome(self):
         if self.isVisible() and needs_welcome():
             self.show_welcome()
+        # Then the tour: after installing, and after every update.
+        QTimer.singleShot(400, self._maybe_tour)
+
+    # =============================================================
+    # TOUR
+    # =============================================================
+
+    def _maybe_tour(self):
+        from backend import whats_new
+        if not self.isVisible() or self._welcome_open or getattr(self, "_tour", None):
+            return
+        due = whats_new.tour_due()
+        if due:
+            self.start_tour(due)
+
+    def start_tour(self, mode="full"):
+        """mode: "first" (new install), "update" (starts with what's new) or "full"."""
+
+        from backend import whats_new
+        from backend.app_info import VERSION
+        from frontend.components.tour import Tour, TourStep
+        from PySide6.QtWidgets import QScrollArea
+
+        if getattr(self, "_tour", None) is not None:
+            return
+
+        home, browse, settings = self.home_page, self.browse_page, self.settings_page
+
+        def show_home(top=True):
+            def run():
+                self.go_home()
+                if top:
+                    home.scroll.verticalScrollBar().setValue(0)
+            return run
+
+        def show_page(page, widget=None):
+            def run():
+                self.stack.setCurrentWidget(page)
+                if widget is not None:
+                    area = page.findChild(QScrollArea, "ContentScroll") or getattr(page, "scroll", None)
+                    if area is not None:
+                        area.ensureWidgetVisible(widget, 50, 120)
+            return run
+
+        def home_studios():
+            self.go_home()
+            home.scroll.ensureWidgetVisible(home.studios_anchor, 0, 40)
+
+        def studio_rows():
+            from PySide6.QtWidgets import QFrame
+            return [home.studios_anchor] + home.findChildren(QFrame, "StudioRow")
+
+        def open_browse():
+            self.open_live_workspace(BrowsePage.TITLE)
+
+        if mode == "update":
+            intro = TourStep(
+                f"What's new in {APP_NAME} {VERSION}",
+                "Here's what changed. Next, a quick look around (or skip it).",
+                prepare=show_home(), extra=whats_new.notes(),
+            )
+        elif mode == "first":
+            intro = TourStep(
+                f"Welcome to {APP_NAME} 👋",
+                "A quick look around: about a minute. Use Next, or the arrow keys.",
+                prepare=show_home(),
+            )
+        else:
+            intro = TourStep(
+                f"A quick tour of {APP_NAME}",
+                "Use Next, or the arrow keys. Esc ends the tour.",
+                prepare=show_home(),
+            )
+
+        steps = [
+            intro,
+            TourStep(
+                "Your window",
+                "Press <b>Start camera</b>, then point one finger to write on the fog. "
+                "A fist pauses, an open palm held for a second wipes it. Pick the pen "
+                "size and fog colour just below.",
+                target=lambda: home.fog, prepare=show_home(),
+            ),
+            TourStep(
+                "Camera status",
+                "Always shows whether your camera is on, and what hands-free mode is "
+                "doing. Your camera is only ever used on this computer.",
+                target=lambda: home.camera_pill, prepare=show_home(),
+            ),
+            TourStep(
+                "Your studios",
+                "Each studio is a set of gestures for one job. <b>Click a row</b> to "
+                "open it. Optional studios have a ✕ to remove them; bring them back "
+                "in Settings.",
+                target=studio_rows, prepare=home_studios,
+            ),
+            TourStep(
+                "Browse & Media Studio",
+                "Scroll, control videos and music, switch tabs and use the hand mouse. "
+                "<b>Click a section</b> to open it; <b>+</b> adds a gesture, motion or "
+                "phrase, ✕ removes one.",
+                target=lambda: [f for f, *_ in browse.sections.values()], prepare=open_browse,
+            ),
+            TourStep(
+                "Start",
+                "Press Start, then switch to your browser, a PDF or Word. Wield keeps "
+                "watching in the background.",
+                target=lambda: browse.start_button, prepare=open_browse,
+            ),
+            TourStep(
+                "What can I do?",
+                "Shows every gesture and phrase on screen, over any app. You can also "
+                "say <b>“Hey Wield, help”</b>.",
+                target=lambda: browse.help_button, prepare=open_browse,
+            ),
+            TourStep(
+                "Hands-free mode",
+                "Turn this on and you won't need to open a studio: make ✋ (or say "
+                "“Hey Wield, wake up”) and your gestures work in any app.",
+                target=lambda: settings.hands_free, prepare=show_page(settings, settings.hands_free),
+            ),
+            TourStep(
+                "Voice commands",
+                "Turn on voice and download the small speech model once. Then say "
+                "“Hey Wield, scroll down”, “next slide”, “mouse mode”…",
+                target=lambda: settings.voice_enabled, prepare=show_page(settings, settings.voice_enabled),
+            ),
+            TourStep(
+                "You're all set",
+                "Take this tour again any time: <b>Settings → About → Take the tour</b>.",
+                prepare=show_home(),
+            ),
+        ]
+
+        self._tour = Tour(self, steps)
+        self._tour.finished.connect(self._after_tour)
+        self._tour.start()
+
+    def _after_tour(self, completed):
+        from backend import whats_new
+        whats_new.mark_seen()
+        self._tour = None
+        self.go_home()
 
     def show_welcome(self):
 
@@ -2236,6 +2380,9 @@ class MainWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+        # Started in the tray after an update: the tour waits until now.
+        QTimer.singleShot(500, self._maybe_welcome)
 
     def restart_app(self):
         """Start a fresh Wield (themes apply at startup), then quit."""

@@ -83,6 +83,9 @@ class SettingsPage(StudioPage):
     # Optional studios brought back (Home should show them).
     studios_restored = Signal()
 
+    # "Take the tour" (About section).
+    tour_requested = Signal()
+
     # "Check for updates now" (About section); the main window answers
     # with show_update_result().
     update_check_requested = Signal()
@@ -318,6 +321,7 @@ class SettingsPage(StudioPage):
         buttons.setSpacing(10)
         buttons.addWidget(self._small_button("Open log", self._open_log))
         buttons.addWidget(self._small_button("Report a problem", self._report_problem))
+        buttons.addWidget(self._small_button("Take the tour", self.tour_requested.emit))
         buttons.addWidget(self._small_button("Show welcome again", self.welcome_requested.emit))
         buttons.addStretch()
 
