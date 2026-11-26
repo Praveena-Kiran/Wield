@@ -18,6 +18,7 @@ from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -249,6 +250,7 @@ class HomePage(QWidget):
 
         self._build_header()
         self._build_live_row()
+        self._build_hand_signs()
         self._build_studios()
 
         self.main.addStretch()
@@ -503,6 +505,69 @@ class HomePage(QWidget):
             )
             label.setWordWrap(True)
             self.recent_layout.addWidget(label)
+
+    # -----------------------------------------------------
+    # YOUR SIX HAND SIGNS
+    # -----------------------------------------------------
+
+    def _build_hand_signs(self):
+        """The six signs and what they do: the one thing to learn."""
+
+        from backend.hand_signs import SIGNS
+
+        card = QFrame()
+        card.setObjectName("Card")
+        self.hand_signs_card = card
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 20, 24, 22)
+        layout.setSpacing(14)
+
+        top = QHBoxLayout()
+        text = QVBoxLayout()
+        text.setSpacing(4)
+        text.addWidget(_eyebrow("Your hand signs"))
+        intro = _label(
+            "Six signs do the same kind of thing in every app. For anything "
+            "else, just say it: “Hey Wield, help” shows you what you can say.",
+            SECONDARY_TEXT, 13,
+        )
+        intro.setWordWrap(True)
+        text.addWidget(intro)
+        top.addLayout(text, 1)
+        layout.addLayout(top)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        self.hand_sign_tiles = []
+        for i, sign in enumerate(SIGNS):
+            tile = QFrame()
+            tile.setStyleSheet(
+                f"QFrame {{ background: {OVERLAY_1}; border: none; border-radius: 16px; }}"
+            )
+            tile.setAccessibleName(f"{sign.name}: {sign.meaning}. {sign.examples}")
+            row = QHBoxLayout(tile)
+            row.setContentsMargins(14, 12, 14, 12)
+            row.setSpacing(12)
+            emoji = _label(sign.emoji, PRIMARY_TEXT, 26)
+            emoji.setFixedWidth(36)
+            emoji.setAlignment(Qt.AlignCenter)
+            row.addWidget(emoji, 0, Qt.AlignTop)
+            words = QVBoxLayout()
+            words.setSpacing(2)
+            words.addWidget(_label(sign.meaning, PRIMARY_TEXT, 15, 600))
+            name = _label(sign.name, PRIMARY, 12, 600)
+            words.addWidget(name)
+            example = _label(sign.examples, TEXT_MUTED, 12)
+            example.setWordWrap(True)
+            words.addWidget(example)
+            row.addLayout(words, 1)
+            grid.addWidget(tile, i // 3, i % 3)
+            grid.setColumnStretch(i % 3, 1)
+            self.hand_sign_tiles.append(tile)
+        layout.addLayout(grid)
+
+        self.main.addWidget(card)
 
     # -----------------------------------------------------
     # STUDIOS
