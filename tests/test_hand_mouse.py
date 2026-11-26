@@ -127,18 +127,39 @@ class HandMouseTests(unittest.TestCase):
         self.assertEqual(mouse.update(None, 1.0), [])
         self.assertFalse(mouse.left_down)
 
-    def test_pointing_up_or_down_scrolls_and_the_pointer_stays_put(self):
-        from tests.test_pointing import hand as pointing_hand
+    def test_thumbs_scroll_and_the_pointer_stays_put(self):
+        from tests.test_pointing import thumbs
         mouse = HandMouse()
         self.frames(mouse, [hand()] * 10)
-        down = self.frames(mouse, [pointing_hand("down")] * 20, start=1.0)
+        down = self.frames(mouse, [thumbs("down")] * 20, start=1.0)
         self.assertIn(("scroll", "down"), down)
-        self.assertFalse(any(op[0] in ("move", "click") for op in down))
-        up = self.frames(mouse, [pointing_hand("up")] * 20, start=2.0)
+        self.assertFalse(any(op[0] in ("move", "click", "exit") for op in down))
+        up = self.frames(mouse, [thumbs("up")] * 40, start=2.0)   # held > a fist's second
         self.assertIn(("scroll", "up"), up)
-        # A quick pass through the pose doesn't scroll.
+        self.assertNotIn(("exit",), up)                           # a thumbs-up isn't a fist
+        # MediaPipe's own label works too.
         mouse2 = HandMouse()
-        self.assertNotIn(("scroll", "down"), self.frames(mouse2, [pointing_hand("down")] * 3))
+        ops = self.frames_with(mouse2, [hand()] * 15, "👍 Thumbs Up")
+        self.assertIn(("scroll", "up"), ops)
+        # A quick pass through the pose doesn't scroll.
+        self.assertNotIn(("scroll", "down"), self.frames(HandMouse(), [thumbs("down")] * 3))
+
+    def test_pointing_moves_the_pointer_and_never_scrolls(self):
+        from tests.test_pointing import hand as pointing_hand
+        mouse = HandMouse()
+        ops = []
+        for i in range(30):
+            pts = [(x + i * 0.004, y) for x, y in pointing_hand("up")]
+            ops += mouse.update(pts, i / 30)
+        self.assertFalse(any(op[0] == "scroll" for op in ops))
+        moves = [op for op in ops if op[0] == "move"]
+        self.assertGreater(moves[-1][1], moves[0][1])
+
+    def frames_with(self, mouse, hands, gesture, start=0.0, fps=30):
+        ops = []
+        for i, h in enumerate(hands):
+            ops += mouse.update(h, start + i / fps, gesture)
+        return ops
 
     def test_holding_a_fist_leaves_mouse_mode(self):
         mouse = HandMouse()

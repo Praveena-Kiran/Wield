@@ -48,6 +48,34 @@ class PointingTests(unittest.TestCase):
         self.assertIsNone(pointing(sideways))
 
 
+def thumbs(direction="up", thumb_out=True):
+    """👍 / 👎: four fingers curled, the thumb straight up or down (or folded)."""
+    pts = hand("down", others_curled=True)          # start from curled fingers
+    pts = list(pts)
+    # Curl the index too.
+    pts[5], pts[6], pts[7], pts[8] = (0.5, 0.59), (0.5, 0.60), (0.5, 0.57), (0.5, 0.55)
+    sign = -1 if direction == "up" else 1
+    if thumb_out:
+        pts[2], pts[3], pts[4] = (0.46, 0.5), (0.46, 0.5 + sign * 0.1), (0.46, 0.5 + sign * 0.2)
+    else:                                              # a fist: thumb across the fingers
+        pts[2], pts[3], pts[4] = (0.46, 0.52), (0.49, 0.56), (0.52, 0.55)
+    return pts
+
+
+class ThumbTests(unittest.TestCase):
+
+    def test_thumbs_up_and_down(self):
+        from backend.gestures.pointing import thumb
+        self.assertEqual(thumb(thumbs("up")), "up")
+        self.assertEqual(thumb(thumbs("down")), "down")
+
+    def test_a_fist_and_pointing_are_not_thumbs(self):
+        from backend.gestures.pointing import thumb
+        self.assertIsNone(thumb(thumbs("up", thumb_out=False)))
+        self.assertIsNone(thumb(hand("up")))
+        self.assertIsNone(thumb(None))
+
+
 class PointScrollTests(unittest.TestCase):
 
     def run_for(self, scroller, direction, seconds, start=0.0, fps=30):

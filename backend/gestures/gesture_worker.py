@@ -355,7 +355,7 @@ class GestureWorker(QObject):
                 self._mouse_request = None
 
             if self.mouse_mode:
-                self._mouse_frame(now)
+                self._mouse_frame(now, gesture if confidence >= 0.5 else None)
                 continue
 
             # -------------------------------------------------
@@ -447,8 +447,8 @@ class GestureWorker(QObject):
         self.stabilizer.update(None, 0.0)
         self.mouse_mode_changed.emit(on)
 
-    def _mouse_frame(self, now):
-        ops = self.hand_mouse.update(self.recognizer.last_image_landmarks, now)
+    def _mouse_frame(self, now, gesture=None):
+        ops = self.hand_mouse.update(self.recognizer.last_image_landmarks, now, gesture)
         if self.recognizer.last_image_landmarks and self.require_arm:
             self._set_armed(True)          # in use: don't fall asleep
         if ("exit",) in ops:
@@ -458,7 +458,7 @@ class GestureWorker(QObject):
             self._set_mouse_mode(False)
             return
 
-        # ☝️ / 👇 while using the hand mouse: scroll that way while held.
+        # 👍 / 👎 while using the hand mouse: scroll that way while held.
         direction = next((op[1] for op in ops if op[0] == "scroll"), None)
         amount = self.scroller.update(direction is not None, None, now, direction=direction or "up")
         if direction is not None:

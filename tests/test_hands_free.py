@@ -88,15 +88,15 @@ class AutoWorkerTests(unittest.TestCase):
         self.assertEqual(self.ran, ["Next slide"])
         self.assertEqual(w.scroll_poses, {})
 
-    def test_pointing_down_scrolls_in_hand_mouse_mode(self):
-        from tests.test_pointing import hand as pointing_hand
+    def test_thumbs_down_scrolls_in_hand_mouse_mode(self):
+        from tests.test_pointing import thumbs
         w = self.worker
         scrolls = []
         w.scroll_requested.connect(lambda amount, direction: scrolls.append(amount))
         w.request_mouse(True)
         w._set_mouse_mode(w._mouse_request)
         for i in range(40):
-            w.recognizer.last_image_landmarks = pointing_hand("down")
+            w.recognizer.last_image_landmarks = thumbs("down")
             w._mouse_frame(i / 30)
         self.assertLess(sum(scrolls), 0)          # scrolled down
 

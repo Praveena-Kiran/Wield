@@ -1805,7 +1805,7 @@ class MainWindow(QMainWindow):
         if not on:
             self._glide_timer.stop()
         if on:
-            text = "Hand mouse on · pinch to click, point up or down to scroll, hold a fist to stop"
+            text = "Hand mouse on · point to move, pinch to click, 👍 👎 to scroll, hold a fist to stop"
             self._gesture_feedback(text)
             self.feedback.info(text, sticky=True)
             self.feedback.sounds.play("armed")

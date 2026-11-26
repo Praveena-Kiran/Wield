@@ -15,15 +15,19 @@ The hand mouse: move the pointer with your hand, pinch to click.
 - One pinch (thumb + index) = one click. While your fingers close for
   the pinch the pointer holds still, so the click lands where you aimed.
 - Pinch thumb + middle finger: right-click.
-- ☝️ Point up / 👇 point down and hold: scroll up / down (the pointer
-  stays put meanwhile).
+- 👍 Thumbs up / 👎 thumbs down and hold: scroll up / down (the pointer
+  stays put meanwhile). Thumbs look nothing like pointing, so moving the
+  pointer by pointing never scrolls by mistake.
 - Hold a fist for a second (or say "Hey Wield, mouse off"): leave mouse mode.
 """
 
 import math
 
 from backend.fog import OneEuroFilter, finger_states
-from backend.gestures.pointing import pointing
+from backend.gestures.pointing import thumb
+
+# MediaPipe's own names for the scroll poses (when the worker passes them).
+THUMB_GESTURES = {"👍 Thumbs Up": "up", "👎 Thumbs Down": "down"}
 
 THUMB_TIP, INDEX_TIP, MIDDLE_TIP = 4, 8, 12
 WRIST, MIDDLE_KNUCKLE = 0, 9
@@ -47,7 +51,7 @@ FREEZE_SECONDS = 0.25   # (kept for older code/tests: a pinch holds the pointer)
 # Fingers closing for a pinch: below this (× hand size) the pointer holds
 # still, so the click lands where you were pointing.
 AIM_LOCK = 0.45
-# Point up / down this long before it scrolls (passing through the pose
+# Thumbs up / down this long before it scrolls (passing through the pose
 # on the way to another doesn't).
 POINT_SCROLL_AFTER = 0.25
 MIN_MOVE = 0.0005    # of the screen: smaller moves aren't sent (the glide smooths the rest)
@@ -124,7 +128,8 @@ class HandMouse:
         self._pinch_since = None
         return []
 
-    def update(self, landmarks, now):
+    def update(self, landmarks, now, gesture=None):
+        """One camera frame. `gesture`: MediaPipe's name for the pose, if known."""
 
         if not landmarks or len(landmarks) < 21:
             self._release()
@@ -137,6 +142,18 @@ class HandMouse:
         left_ratio = _distance(landmarks[THUMB_TIP], landmarks[INDEX_TIP]) / size
         right_ratio = _distance(landmarks[THUMB_TIP], landmarks[MIDDLE_TIP]) / size
 
+        # 👍 / 👎: scroll while held (the pointer stays put). Checked before
+        # the fist, which also has the fingers curled.
+        direction = THUMB_GESTURES.get(gesture) or thumb(landmarks)
+        if direction:
+            self._fist_since = None
+            if self._point_dir != direction:
+                self._point_dir, self._point_since = direction, now
+            if now - self._point_since >= POINT_SCROLL_AFTER:
+                return [("scroll", direction)]
+            return []
+        self._point_dir = self._point_since = None
+
         # Leave mouse mode: a fist held for a second (not a pinch: curled
         # fingers with the thumb on the index).
         states = finger_states(landmarks)
@@ -148,16 +165,6 @@ class HandMouse:
                 return [("exit",)]
             return []
         self._fist_since = None
-
-        # Point up / down: scroll while held (the pointer stays put).
-        direction = pointing(landmarks) if left_ratio >= PINCH_OFF else None
-        if direction:
-            if self._point_dir != direction:
-                self._point_dir, self._point_since = direction, now
-            if now - self._point_since >= POINT_SCROLL_AFTER:
-                return [("scroll", direction)]
-            return []
-        self._point_dir = self._point_since = None
 
         # One pinch, one click (with hysteresis, so a pinch isn't two).
         if not self._pinched and left_ratio < PINCH_ON:
