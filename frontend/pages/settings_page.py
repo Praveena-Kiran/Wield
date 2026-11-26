@@ -366,8 +366,8 @@ class SettingsPage(StudioPage):
 
         self._row(
             "Updates",
-            f"Once a day, {APP_NAME} checks if there's a newer version and "
-            "tells you. Nothing about you is sent.",
+            f"Every few hours, {APP_NAME} checks if there's a newer version and "
+            "tells you with a notification. Nothing about you is sent.",
             update_row,
         )
 

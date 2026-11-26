@@ -2051,9 +2051,38 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def _on_update_result(self, release):
         if release:
+            self._pending_release = release          # kept for a theme change
             self.update_banner.show_update(release)
+            self._notify_update(release)
         if self._update_force:
             self.settings_page.show_update_result(release)
+
+    def _notify_update(self, release):
+        """
+        A Windows notification (once per version), so people hear about an
+        update even when Wield's window is closed. Clicking it opens the
+        download page.
+        """
+
+        from backend import updates
+
+        settings = SettingsManager()
+        if self.tray is None or not updates.should_notify(settings, release):
+            return
+        updates.mark_notified(settings, release)
+        self._notify_url = release["url"]
+        self.tray.showMessage(
+            f"{APP_NAME} {release['version']} is out",
+            "Click here to download it. Your settings and hand signs carry over.",
+            QSystemTrayIcon.MessageIcon.Information,
+            10000,
+        )
+
+    def _on_tray_message_clicked(self):
+        url = getattr(self, "_notify_url", None)
+        if url:
+            import webbrowser
+            webbrowser.open(url)
 
     def _record(
         self,
@@ -2414,6 +2443,15 @@ class MainWindow(QMainWindow):
 
         self.tray.setContextMenu(menu)
 
+        self.tray.messageClicked.connect(self._on_tray_message_clicked)
+
+        # Wield can run for days: look for a new version every so often
+        # (backend/updates.py decides whether it's time).
+        self._update_timer = QTimer(self)
+        self._update_timer.setInterval(30 * 60 * 1000)
+        self._update_timer.timeout.connect(self.check_for_updates)
+        self._update_timer.start()
+
         self._tray_state = None
         self._tray_timer = QTimer(self)
         self._tray_timer.setInterval(700)
@@ -2487,6 +2525,8 @@ class MainWindow(QMainWindow):
 
     def show_from_tray(self):
 
+        QTimer.singleShot(1500, self.check_for_updates)    # if it's time
+
         self.showNormal()
         self.raise_()
         self.activateWindow()
@@ -2531,6 +2571,9 @@ class MainWindow(QMainWindow):
 
         self.sidebar.refresh_user()
         self._refresh_suggestion()
+        release = getattr(self, "_pending_release", None)
+        if release and SettingsManager().get_setting("update_skipped") != release["version"]:
+            self.update_banner.show_update(release)
         if on_settings:
             self.stack.setCurrentWidget(self.settings_page)
             self.sidebar.set_active("settings")

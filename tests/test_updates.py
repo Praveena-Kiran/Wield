@@ -54,10 +54,26 @@ class CheckTests(unittest.TestCase):
     def test_offline_is_quiet(self):
         self.assertIsNone(updates.check(FakeSettings(), now=1e9, download=offline))
 
-    def test_once_a_day(self):
+    def test_every_few_hours(self):
         s = FakeSettings(update_last_check=1e9)
         self.assertIsNone(updates.check(s, now=1e9 + 3600, download=release("v99.0.0")))
-        self.assertIsNotNone(updates.check(s, now=1e9 + 90000, download=release("v99.0.0")))
+        self.assertIsNotNone(updates.check(s, now=1e9 + 5 * 3600, download=release("v99.0.0")))
+
+    def test_a_failed_check_does_not_count(self):
+        # Offline at start-up: try again next time, not in a day.
+        s = FakeSettings()
+        self.assertIsNone(updates.check(s, now=1e9, download=offline))
+        self.assertNotIn("update_last_check", s.values)
+        self.assertIsNotNone(updates.check(s, now=1e9 + 60, download=release("v99.0.0")))
+
+    def test_notify_once_per_version(self):
+        s = FakeSettings()
+        r = {"version": "99.0.0", "url": "u", "notes": ""}
+        self.assertTrue(updates.should_notify(s, r))
+        updates.mark_notified(s, r)
+        self.assertFalse(updates.should_notify(s, r))
+        self.assertTrue(updates.should_notify(s, dict(r, version="99.0.1")))
+        self.assertFalse(updates.should_notify(s, None))
 
     def test_switched_off_and_skipped(self):
         off = FakeSettings(update_check=False)
