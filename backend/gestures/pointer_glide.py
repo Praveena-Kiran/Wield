@@ -15,7 +15,7 @@ import math
 
 # How quickly the pointer catches up: after TIME_CONSTANT seconds it has
 # gone about 63% of the way, after 3x that 95%.
-TIME_CONSTANT = 0.035
+TIME_CONSTANT = 0.045
 # Close enough: snap to the target (and stop sending moves).
 SNAP = 0.0004
 MAX_STEP_SECONDS = 0.05      # after a pause, don't leap in one go

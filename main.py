@@ -617,17 +617,14 @@ class MainWindow(QMainWindow):
     ):
 
         if item_id == "settings":
-            self.stop_gesture_worker()
             self.sidebar.set_active("settings")
             self.stack.setCurrentWidget(self.settings_page)
 
         elif item_id == "history":
-            self.stop_gesture_worker()
             self.sidebar.set_active("history")
             self.stack.setCurrentWidget(self.activity_page)
 
         elif item_id == "notifications":
-            self.stop_gesture_worker()
             self.sidebar.set_active("notifications")
             self.stack.setCurrentWidget(self.notifications_page)
 
@@ -653,7 +650,9 @@ class MainWindow(QMainWindow):
             "🏠 Returning to dashboard..."
         )
 
-        self.stop_gesture_worker()
+        # A studio that's running keeps running (its Stop button, or the
+        # tray menu, turns it off); Home shows it with a green dot.
+        self.home_page.set_running_studio(self._running_studio_title())
 
         self.sidebar.set_active("home")
 
@@ -860,10 +859,9 @@ class MainWindow(QMainWindow):
                 self.presentation_page
             )
 
-            # The camera and microphone stay off until the user starts the
-            # presentation (or turns them on): opening a page shouldn't.
-            if self.gesture_context not in ("presentation", "auto"):
-                self.stop_gesture_worker()
+            # Opening the page doesn't turn anything on (or off: another
+            # studio that's running keeps going until this one starts).
+            if self.gesture_context != "presentation":
                 self.presentation_page.set_listening(False)
 
         # =====================================================
@@ -1173,6 +1171,10 @@ class MainWindow(QMainWindow):
 
         self._start_voice(worker.voice_events)
 
+        # Home shows which studio is running (a green dot), even after you
+        # leave its page.
+        self.home_page.set_running_studio(self._running_studio_title())
+
     def _gesture_feedback(
         self,
         message,
@@ -1371,6 +1373,16 @@ class MainWindow(QMainWindow):
     # STOP GESTURE WORKER
     # =============================================================
 
+    def _running_studio_title(self):
+        """The studio whose gestures are running now (not hands-free mode)."""
+        if self.gesture_worker is None:
+            return None
+        return {
+            "presentation": "Presentation Studio",
+            "browse": BrowsePage.TITLE,
+            "custom": self.gesture_studio_name or None,
+        }.get(self.gesture_context)
+
     def stop_gesture_worker(
         self
     ):
@@ -1437,6 +1449,8 @@ class MainWindow(QMainWindow):
         self.gesture_context = None
 
         self.feedback.stopped()
+
+        self.home_page.set_running_studio(None)
 
         if self.custom_page.gesture_control_running:
 
@@ -1586,6 +1600,14 @@ class MainWindow(QMainWindow):
 
     @Slot(bool)
     def _on_camera_claims(self, in_use):
+        if in_use and self.gesture_context not in (None, "auto"):
+            # The misty window on Home wants the camera: only one can have it.
+            name = self._running_studio_title() or "The studio"
+            print(f"📷 {name} stopped: the camera is needed on Home")
+            self.stop_gesture_worker()
+            from frontend.components.toast import toast
+            toast(self, f"{name} stopped so the misty window can use the camera.", "info")
+            return
         if in_use and self.gesture_context == "auto":
             print("🖐 Hands-free mode: lending the camera")
             self.stop_gesture_worker()

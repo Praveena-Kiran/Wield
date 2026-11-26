@@ -27,7 +27,7 @@ class GlideTests(unittest.TestCase):
         g.aim(0.0, 0.0)
         g.step(0.0)
         g.aim(0.4, 0.0)                         # one camera frame's jump
-        positions = run(g, 0.3, start=0.0)
+        positions = run(g, 0.45, start=0.0)
         xs = [x for x, _ in positions]
         self.assertGreater(len(xs), 10)          # lots of small moves, not one hop
         self.assertEqual(xs, sorted(xs))         # always forwards, no overshoot
@@ -39,7 +39,7 @@ class GlideTests(unittest.TestCase):
         g.aim(0.0, 0.0)
         g.step(0.0)
         g.aim(1.0, 0.0)
-        run(g, 0.1)                              # 100 ms later: nearly there
+        run(g, 0.15)                             # 150 ms later: nearly there
         self.assertGreater(g.current[0], 0.9)
 
     def test_still_hand_sends_nothing(self):

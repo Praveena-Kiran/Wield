@@ -195,6 +195,41 @@ def _button(text, primary=False, quiet=False, accent_text=False):
     return button
 
 
+class _LiveDot(QWidget):
+    """A small green dot that slowly blinks while a studio is running."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(10, 10)
+        self._level = 1.0
+        self._phase = 0.0
+        self._timer = QTimer(self)
+        self._timer.setInterval(50)
+        self._timer.timeout.connect(self._tick)
+
+    def set_running(self, on):
+        if on:
+            self._timer.start()
+        else:
+            self._timer.stop()
+
+    def _tick(self):
+        import math
+        self._phase += 0.05 * math.tau / 1.4          # one blink every ~1.4 s
+        self._level = 0.25 + 0.75 * (0.5 + 0.5 * math.cos(self._phase))
+        self.update()
+
+    def paintEvent(self, event):
+        from PySide6.QtGui import QColor, QPainter
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = QColor(SUCCESS)
+        color.setAlphaF(self._level)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+        painter.drawEllipse(1, 1, 8, 8)
+
+
 class HomePage(QWidget):
 
     studio_selected = Signal(str)
@@ -291,6 +326,12 @@ class HomePage(QWidget):
 
     def _set_camera_pill(self, on):
         self._fog_camera_on = on
+        running = getattr(self, "running_studio", None)
+        if not on and running:
+            self.camera_pill.setText(
+                f'<span style="color:{SUCCESS};">●</span>&nbsp; {running} is running'
+            )
+            return
         if not on and getattr(self, "hands_free_text", None):
             self.camera_pill.setText(
                 f'<span style="color:{SUCCESS};">●</span>&nbsp; {self.hands_free_text}'
@@ -644,6 +685,18 @@ class HomePage(QWidget):
                     latest[key] = e["_at"]
         return latest
 
+    def set_running_studio(self, title):
+        """Show a blinking green dot on the studio that's running (None: none)."""
+        if title == getattr(self, "running_studio", None):
+            return
+        self.running_studio = title
+        self._set_camera_pill(getattr(self, "_fog_camera_on", False))
+        for row_title, (dot, label) in getattr(self, "_running_marks", {}).items():
+            on = row_title == title
+            dot.setVisible(on)
+            label.setVisible(on)
+            dot.set_running(on)
+
     def refresh_studios(self):
 
         self._update_header()
@@ -652,8 +705,10 @@ class HomePage(QWidget):
         while self.studios_layout.count():
             w = self.studios_layout.takeAt(0).widget()
             if w:
+                w.hide()
                 w.deleteLater()
 
+        self._running_marks = {}
         last_used = self._last_used()
 
         # The main studios first (in their usual order), then the rest.
@@ -707,7 +762,23 @@ class HomePage(QWidget):
 
         text = QVBoxLayout()
         text.setSpacing(2)
-        text.addWidget(_label(title, PRIMARY_TEXT, 15, 500))
+        name_line = QHBoxLayout()
+        name_line.setSpacing(8)
+        name_line.addWidget(_label(title, PRIMARY_TEXT, 15, 500))
+        # Running: a blinking green dot and the word, so it's clear the
+        # studio is still working after you've left its page.
+        running = title == getattr(self, "running_studio", None)
+        dot = _LiveDot()
+        running_label = _label("Running", SUCCESS, 12, 600)
+        for widget in (dot, running_label):
+            widget.setVisible(running)
+            name_line.addWidget(widget, 0, Qt.AlignVCenter)
+        dot.set_running(running)
+        name_line.addStretch()
+        text.addLayout(name_line)
+        self._running_marks[title] = (dot, running_label)
+        if running:
+            row.setToolTip(f"{title} is running. Open it to stop it.")
 
         if custom:
             events = studio.get("events", [])
