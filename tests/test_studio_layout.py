@@ -86,10 +86,6 @@ class GestureStudioTest(unittest.TestCase):
         self.assertTrue(page.section_frames["motion"].is_open())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 @unittest.skipIf(QApplication is None, "PySide6 not installed")
 class RunningStudioTest(unittest.TestCase):
 
@@ -103,10 +99,14 @@ class RunningStudioTest(unittest.TestCase):
         home.set_running_studio("Browse & Media Studio")
         dot, label = home._running_marks["Browse & Media Studio"]
         self.assertFalse(dot.isHidden())
-        self.assertFalse(home._running_marks["Presentation Studio"][0].isHidden() is False)
+        self.assertTrue(home._running_marks["Presentation Studio"][0].isHidden())
         self.assertIn("running", home.camera_pill.text())
         home.refresh_studios()                         # rows rebuilt: still marked
         self.assertFalse(home._running_marks["Browse & Media Studio"][0].isHidden())
         home.set_running_studio(None)
         self.assertTrue(home._running_marks["Browse & Media Studio"][0].isHidden())
         self.assertNotIn("running", home.camera_pill.text())
+
+
+if __name__ == "__main__":
+    unittest.main()
