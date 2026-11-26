@@ -487,6 +487,7 @@ class HomePage(QWidget):
         while self.recent_layout.count():
             w = self.recent_layout.takeAt(0).widget()
             if w:
+                w.hide()            # gone now, not when Qt gets round to deleting it
                 w.deleteLater()
 
         entries = sorted(ActivityLog().entries(), key=lambda e: e["_at"], reverse=True)[:3]
