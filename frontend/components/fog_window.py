@@ -313,6 +313,9 @@ class FogWindow(QWidget):
         the line bends smoothly instead of zig-zagging between samples.
         """
 
+        if point is None:
+            return                          # nowhere to draw (off the edge)
+
         pts = self._stroke
         pts.append(point)
         del pts[:-3]
@@ -388,6 +391,8 @@ class FogWindow(QWidget):
             if jump > MAX_JUMP:
                 self._end_stroke()          # tracking glitch: start a new stroke
                 point = self._to_mask(self._smoother(fingertip(landmarks), now))
+                if point is None:           # ...and it's off the edge now
+                    return
             elif (point - last).manhattanLength() < self.stroke_width * MIN_STEP:
                 return                      # too small a move: wait for more
 

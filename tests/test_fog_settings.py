@@ -55,5 +55,38 @@ class FogSettingsTests(unittest.TestCase):
             window.deleteLater()
 
 
+    @unittest.skipUnless(HAVE_QT, "PySide6 not installed")
+    def test_jump_then_off_the_edge_does_not_crash(self):
+        # A friend's report: the finger jumped (tracking glitch) and the
+        # fresh start point was off the edge -> drawLine(None, None).
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtCore import QPointF
+        from PySide6.QtWidgets import QApplication
+        QApplication.instance() or QApplication([])
+        from frontend.components import fog_window
+        from frontend.components.fog_window import FogWindow
+
+        window = FogWindow()
+        try:
+            points = iter([QPointF(10, 10), QPointF(400, 300), None])   # pen down on frame 2
+            window._to_mask = lambda p: next(points)
+
+            class Passthrough:
+                def __call__(self, p, now):
+                    return p
+
+                def reset(self):
+                    pass
+
+            window._smoother = Passthrough()
+            with mock.patch.object(fog_window, "hand_mode", lambda lm: "write"), \
+                    mock.patch.object(fog_window, "fingertip", lambda lm: (0.5, 0.5)):
+                for i in range(3):
+                    window.handle_hand(object(), now=i * 0.05)    # pen down, a line, a jump
+            self.assertEqual(window._stroke, [])                   # nothing drawn off the edge
+            window._add_point(None)                                # and never with no point
+        finally:
+            window.deleteLater()
+
 if __name__ == "__main__":
     unittest.main()

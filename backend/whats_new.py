@@ -36,8 +36,20 @@ NOTES = {
 }
 
 
+def _feature_release(version):
+    """"1.4.1" -> (1, 4): fix-only updates (1.4.1, 1.4.2...) share 1.4's notes and tour."""
+    parts = (str(version or "").split(".") + ["0", "0"])[:2]
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
 def notes(version=VERSION):
-    return NOTES.get(version, [])
+    if version in NOTES:
+        return NOTES[version]
+    release = _feature_release(version)
+    return NOTES.get(f"{release[0]}.{release[1]}.0", []) if release else []
 
 
 def seen_version(settings=None):
@@ -52,9 +64,9 @@ def tour_due(settings=None):
     seen = seen_version(settings)
     if not seen:
         return "first"
-    if seen != VERSION:
+    if _feature_release(seen) != _feature_release(VERSION):
         return "update"
-    return None
+    return None             # same version, or only a fix-only update (1.4.0 -> 1.4.1)
 
 
 def mark_seen(settings=None):

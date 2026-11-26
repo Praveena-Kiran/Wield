@@ -33,6 +33,13 @@ class WhatsNewTests(unittest.TestCase):
         self.assertEqual(settings.values["tour_seen_version"], VERSION)
         self.assertIsNone(whats_new.tour_due(settings))
 
+    def test_fix_only_updates_skip_the_tour(self):
+        from backend import whats_new
+        with mock.patch.object(whats_new, "VERSION", "1.4.1"):
+            self.assertIsNone(whats_new.tour_due(FakeSettings("1.4.0")))
+            self.assertEqual(whats_new.tour_due(FakeSettings("1.3.0")), "update")
+            self.assertEqual(whats_new.notes("1.4.1"), whats_new.NOTES["1.4.0"])
+
     def test_this_version_has_notes(self):
         from backend import whats_new
         self.assertTrue(whats_new.notes())
