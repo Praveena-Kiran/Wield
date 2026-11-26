@@ -1777,11 +1777,13 @@ class MainWindow(QMainWindow):
                     if not self._glide_timer.isActive():
                         self._glide_timer.start()
                     continue
-                # Buttons press where you aimed, not where the glide has got to.
+                # Clicks land where you aimed, not where the glide has got to.
                 position = glide.settle()
-                if position is not None and op[0] in ("left_down", "right_click"):
+                if position is not None and op[0] in ("click", "left_down", "right_click"):
                     self.desktop_input.move_to(*position)
-                if op[0] == "left_down":
+                if op[0] == "click":
+                    self.desktop_input.click("left")
+                elif op[0] == "left_down":
                     self.desktop_input.button("left", True)
                 elif op[0] == "left_up":
                     self.desktop_input.button("left", False)
@@ -1803,7 +1805,7 @@ class MainWindow(QMainWindow):
         if not on:
             self._glide_timer.stop()
         if on:
-            text = "Hand mouse on · pinch to click, hold a fist to stop"
+            text = "Hand mouse on · pinch to click, point up or down to scroll, hold a fist to stop"
             self._gesture_feedback(text)
             self.feedback.info(text, sticky=True)
             self.feedback.sounds.play("armed")

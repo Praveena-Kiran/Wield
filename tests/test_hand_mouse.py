@@ -99,25 +99,21 @@ class HandMouseTests(unittest.TestCase):
         self.frames(mouse, [hand()] * 30)
         self.assertEqual(self.frames(mouse, [hand()] * 10, start=1.0), [])
 
-    def test_quick_pinch_is_a_click_and_the_pointer_stays_put(self):
+    def test_one_pinch_is_one_click_and_the_pointer_stays_put(self):
         mouse = HandMouse()
         self.frames(mouse, [hand()] * 20)
         # Pinch while the hand drifts a little: the pointer shouldn't follow.
-        ops = self.frames(mouse, [hand(0.5 + i * 0.004, pinch=True) for i in range(5)], start=1.0)
-        self.assertEqual(ops[0], ("left_down",))
+        ops = self.frames(mouse, [hand(0.5 + i * 0.004, pinch=True) for i in range(15)], start=1.0)
+        self.assertEqual(ops.count(("click",)), 1)           # held: still one click
         self.assertFalse(any(op[0] == "move" for op in ops))
-        ops = self.frames(mouse, [hand()] * 2, start=1.2)
-        self.assertIn(("left_up",), ops)
+        self.assertNotIn(("left_down",), ops)                # no accidental drags
+        self.frames(mouse, [hand()] * 5, start=1.6)          # let go...
+        ops = self.frames(mouse, [hand(pinch=True)] * 3, start=2.0)
+        self.assertEqual(ops.count(("click",)), 1)           # ...and pinch again: a second click
 
-    def test_pinch_and_move_drags(self):
-        mouse = HandMouse()
-        self.frames(mouse, [hand()] * 10)
-        ops = self.frames(mouse, [hand(0.5 + i * 0.01, pinch=True) for i in range(30)], start=1.0)
-        self.assertEqual(ops[0], ("left_down",))
-        moves_after_freeze = [op for op in ops if op[0] == "move"]
-        self.assertTrue(moves_after_freeze)
-        self.assertNotIn(("left_up",), ops)                  # still holding
-        self.assertGreater(30 / 30, FREEZE_SECONDS)
+    def test_pointer_holds_still_while_fingers_close(self):
+        from backend.gestures.hand_mouse import AIM_LOCK
+        self.assertGreater(AIM_LOCK, 0.28)                   # before the pinch counts
 
     def test_right_click_once_per_pinch(self):
         mouse = HandMouse()
@@ -125,11 +121,24 @@ class HandMouseTests(unittest.TestCase):
         ops = self.frames(mouse, [hand(right=True)] * 10, start=1.0)
         self.assertEqual(ops.count(("right_click",)), 1)
 
-    def test_losing_the_hand_releases_the_button(self):
+    def test_losing_the_hand_is_quiet_and_never_holds_a_button(self):
         mouse = HandMouse()
         self.frames(mouse, [hand(pinch=True)] * 3)
-        self.assertEqual(mouse.update(None, 1.0), [("left_up",)])
-        self.assertEqual(mouse.update(None, 1.1), [])
+        self.assertEqual(mouse.update(None, 1.0), [])
+        self.assertFalse(mouse.left_down)
+
+    def test_pointing_up_or_down_scrolls_and_the_pointer_stays_put(self):
+        from tests.test_pointing import hand as pointing_hand
+        mouse = HandMouse()
+        self.frames(mouse, [hand()] * 10)
+        down = self.frames(mouse, [pointing_hand("down")] * 20, start=1.0)
+        self.assertIn(("scroll", "down"), down)
+        self.assertFalse(any(op[0] in ("move", "click") for op in down))
+        up = self.frames(mouse, [pointing_hand("up")] * 20, start=2.0)
+        self.assertIn(("scroll", "up"), up)
+        # A quick pass through the pose doesn't scroll.
+        mouse2 = HandMouse()
+        self.assertNotIn(("scroll", "down"), self.frames(mouse2, [pointing_hand("down")] * 3))
 
     def test_holding_a_fist_leaves_mouse_mode(self):
         mouse = HandMouse()

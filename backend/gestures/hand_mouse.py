@@ -3,32 +3,27 @@ The hand mouse: move the pointer with your hand, pinch to click.
 
     mouse = HandMouse()
     ops = mouse.update(image_landmarks, now)
-    # [("move", x, y), ("left_down",), ("left_up",), ("right_click",), ("exit",)]
+    # [("move", x, y), ("click",), ("right_click",), ("scroll", "up"|"down"), ("exit",)]
     # x, y: 0..1 across the screen
 
-- The pointer follows the point between your thumb tip and index fingertip.
-  That point barely moves when you pinch them together, so clicking
-  doesn't knock the pointer off the button (a fingertip would).
-- A small box of the camera image covers the whole screen, so small hand
-  movements reach every corner. It's centred on where your hand is when
-  the hand mouse turns on (that spot is the middle of the screen), and
-  if your hand drifts past its edge the box follows, like lifting and
-  putting down a mouse. Its size is the "reach" (Settings: short,
-  medium, long).
-- The position goes through a One-Euro filter (as the fog writing and
-  scrolling do): steady when you aim, quick when you sweep across. On
-  screen, the pointer glides between camera frames (pointer_glide.py).
-- Pinch thumb + index: left button down; let go: up. A quick pinch is a
-  click, two are a double-click, pinch-and-move drags. For the first
-  moment of a pinch the pointer stays put, so a click lands where you aimed.
+- Your hand moves the pointer: it follows the point between your thumb
+  tip and index fingertip, smoothed (One-Euro filter), and on screen it
+  glides between camera frames (pointer_glide.py).
+- A small box of the camera image covers the whole screen. It's centred
+  on where your hand is when the hand mouse turns on, and if your hand
+  drifts past its edge the box follows (see REACH).
+- One pinch (thumb + index) = one click. While your fingers close for
+  the pinch the pointer holds still, so the click lands where you aimed.
 - Pinch thumb + middle finger: right-click.
+- ☝️ Point up / 👇 point down and hold: scroll up / down (the pointer
+  stays put meanwhile).
 - Hold a fist for a second (or say "Hey Wield, mouse off"): leave mouse mode.
-- Hand lost: any held button is released, so nothing stays dragged.
 """
 
 import math
 
 from backend.fog import OneEuroFilter, finger_states
+from backend.gestures.pointing import pointing
 
 THUMB_TIP, INDEX_TIP, MIDDLE_TIP = 4, 8, 12
 WRIST, MIDDLE_KNUCKLE = 0, 9
@@ -48,7 +43,13 @@ DEFAULT_REACH = "medium"
 
 PINCH_ON = 0.28      # pinched: tips closer than this × hand size
 PINCH_OFF = 0.40     # released: further than this (hysteresis)
-FREEZE_SECONDS = 0.25
+FREEZE_SECONDS = 0.25   # (kept for older code/tests: a pinch holds the pointer)
+# Fingers closing for a pinch: below this (× hand size) the pointer holds
+# still, so the click lands where you were pointing.
+AIM_LOCK = 0.45
+# Point up / down this long before it scrolls (passing through the pose
+# on the way to another doesn't).
+POINT_SCROLL_AFTER = 0.25
 MIN_MOVE = 0.0005    # of the screen: smaller moves aren't sent (the glide smooths the rest)
 EXIT_FIST_SECONDS = 1.0
 
@@ -100,61 +101,74 @@ class HandMouse:
         self.reach = reach
         # Steadier when you hold still (lower cutoff), still quick when you
         # sweep across the screen (beta).
-        self.fx = OneEuroFilter(min_cutoff=0.7, beta=3.0)
-        self.fy = OneEuroFilter(min_cutoff=0.7, beta=3.0)
+        # Steady when you hold still, still quick when you sweep across.
+        self.fx = OneEuroFilter(min_cutoff=0.5, beta=3.0)
+        self.fy = OneEuroFilter(min_cutoff=0.5, beta=3.0)
         self.reset()
 
     def reset(self):
         self.region = self.fixed_region
         self.fx.reset()
         self.fy.reset()
-        self.left_down = False
+        self.left_down = False          # never held: a pinch is a click
+        self._pinched = False
         self._pinch_since = None
         self._right_pinched = False
+        self._point_since = None
+        self._point_dir = None
         self._last_sent = None
         self._fist_since = None
 
     def _release(self):
-        ops = [("left_up",)] if self.left_down else []
-        self.left_down = False
+        self._pinched = False
         self._pinch_since = None
-        return ops
+        return []
 
     def update(self, landmarks, now):
 
         if not landmarks or len(landmarks) < 21:
-            # Hand lost: never leave a button held down.
-            ops = self._release()
+            self._release()
             self._fist_since = None
-            return ops
+            self._point_since = None
+            return []
 
         ops = []
         size = _distance(landmarks[WRIST], landmarks[MIDDLE_KNUCKLE]) or 1e-6
         left_ratio = _distance(landmarks[THUMB_TIP], landmarks[INDEX_TIP]) / size
+        right_ratio = _distance(landmarks[THUMB_TIP], landmarks[MIDDLE_TIP]) / size
 
-        # Leave mouse mode: a fist held for a second. Not while pinching
-        # (curled fingers + thumb on the index is a pinch, not a fist).
+        # Leave mouse mode: a fist held for a second (not a pinch: curled
+        # fingers with the thumb on the index).
         states = finger_states(landmarks)
-        if states and not any(states.values()) and left_ratio >= PINCH_OFF and not self.left_down:
+        if states and not any(states.values()) and left_ratio >= PINCH_OFF:
             if self._fist_since is None:
                 self._fist_since = now
             elif now - self._fist_since >= EXIT_FIST_SECONDS:
                 self._fist_since = None
-                return self._release() + [("exit",)]
-            return self._release()
+                return [("exit",)]
+            return []
         self._fist_since = None
 
-        # Left button: thumb + index pinch (with hysteresis).
-        if not self.left_down and left_ratio < PINCH_ON:
-            self.left_down = True
+        # Point up / down: scroll while held (the pointer stays put).
+        direction = pointing(landmarks) if left_ratio >= PINCH_OFF else None
+        if direction:
+            if self._point_dir != direction:
+                self._point_dir, self._point_since = direction, now
+            if now - self._point_since >= POINT_SCROLL_AFTER:
+                return [("scroll", direction)]
+            return []
+        self._point_dir = self._point_since = None
+
+        # One pinch, one click (with hysteresis, so a pinch isn't two).
+        if not self._pinched and left_ratio < PINCH_ON:
+            self._pinched = True
             self._pinch_since = now
-            ops.append(("left_down",))
-        elif self.left_down and left_ratio > PINCH_OFF:
-            ops += self._release()
+            ops.append(("click",))
+        elif self._pinched and left_ratio > PINCH_OFF:
+            self._pinched = False
 
         # Right click: thumb + middle pinch, once per pinch.
-        right_ratio = _distance(landmarks[THUMB_TIP], landmarks[MIDDLE_TIP]) / size
-        if not self.left_down and not self._right_pinched and right_ratio < PINCH_ON:
+        if not self._pinched and not self._right_pinched and right_ratio < PINCH_ON:
             self._right_pinched = True
             ops.append(("right_click",))
         elif self._right_pinched and right_ratio > PINCH_OFF:
@@ -170,8 +184,10 @@ class HandMouse:
         sx, sy = to_screen(px, py, self.region)
         sx, sy = self.fx(sx, now), self.fy(sy, now)
 
-        frozen = self._pinch_since is not None and now - self._pinch_since < FREEZE_SECONDS
-        if not frozen and not self._right_pinched:
+        # Hold still while a pinch is on its way or held, so clicks land
+        # where you aimed.
+        aiming = min(left_ratio, right_ratio) < AIM_LOCK
+        if not (aiming or self._pinched or self._right_pinched):
             last = self._last_sent
             if last is None or abs(sx - last[0]) + abs(sy - last[1]) >= MIN_MOVE:
                 self._last_sent = (sx, sy)

@@ -73,7 +73,8 @@ class GestureWorker(QObject):
     hold_progress = Signal(str, float)
 
     # Hand mouse: what to do with the pointer this frame, e.g.
-    # [("move", x, y), ("left_down",), ("left_up",), ("right_click",)].
+    # [("move", x, y), ("click",), ("right_click",)]; scrolling while you
+    # point up / down goes through scroll_requested.
     mouse_ops = Signal(list)
 
     # Hand mouse switched on / off (by voice, a gesture, or a held fist).
@@ -456,6 +457,20 @@ class GestureWorker(QObject):
                 self.mouse_ops.emit(ops)
             self._set_mouse_mode(False)
             return
+
+        # ☝️ / 👇 while using the hand mouse: scroll that way while held.
+        direction = next((op[1] for op in ops if op[0] == "scroll"), None)
+        amount = self.scroller.update(direction is not None, None, now, direction=direction or "up")
+        if direction is not None:
+            if direction != self._scroll_direction:
+                self._scroll_direction = direction
+                self.scroll_requested.emit(0, direction)
+            if amount:
+                self.scroll_requested.emit(amount, direction)
+        elif self._scroll_direction:
+            self._scroll_direction = ""
+        ops = [op for op in ops if op[0] != "scroll"]
+
         if ops:
             self.mouse_ops.emit(ops)
         self._motions_quiet_until = now + 0.6
