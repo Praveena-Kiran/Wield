@@ -7,6 +7,7 @@ action codes, just like Presentation Studio. PROFILE_ACTIONS gives each a
 name and the event it becomes: (name, action, value).
 
     "Scroll"   handled live by the gesture worker while the pose is held
+    "ScrollPoint"  likewise: ☝️ / 👇 scroll up / down while held
                (backend/gestures/scroll.py), never as a one-off event
     "Wheel"    one scroll up or down (voice, a motion or a pose): works in
                any app, like turning the mouse wheel a few notches
@@ -34,6 +35,8 @@ SCROLL = "browse_scroll"
 
 # In the order shown in the studio.
 ACTIONS = [
+    "browse_point_up",
+    "browse_point_down",
     SCROLL,
     "browse_scroll_up",
     "browse_scroll_down",
@@ -74,7 +77,8 @@ ACTIONS = [
 SECTIONS = [
     ("scroll", "Scroll & zoom", "↕",
      "Any app: a web page, a PDF, Word. Works on what's under your mouse pointer.",
-     [SCROLL, "browse_scroll_up", "browse_scroll_down", "browse_go_to_page",
+     ["browse_point_up", "browse_point_down", SCROLL,
+      "browse_scroll_up", "browse_scroll_down", "browse_go_to_page",
       "browse_zoom_in", "browse_zoom_out", "browse_zoom_reset"]),
     ("video", "Videos", "▶",
      "YouTube and most video sites, in the browser in front.",
@@ -101,6 +105,8 @@ SECTIONS = [
 ]
 
 PROFILE_ACTIONS = {
+    "browse_point_up": ("Scroll up (point up and hold)", "ScrollPoint", "up"),
+    "browse_point_down": ("Scroll down (point down and hold)", "ScrollPoint", "down"),
     SCROLL: ("Scroll (hold and move your hand)", "Scroll", "hold"),
     "browse_scroll_up": ("Scroll up", "Wheel", "scroll_up"),
     "browse_scroll_down": ("Scroll down", "Wheel", "scroll_down"),
@@ -193,6 +199,38 @@ COMMANDS = {
 WHEEL_NOTCHES = {"slow": 3, "medium": 5, "fast": 8}
 
 
+# Built-in gestures from earlier versions that the six hand signs replaced
+# (backend/hand_signs.py). Still set to these = never changed by the user,
+# so they're swapped for the new defaults once.
+OLD_DEFAULTS = {
+    "✌️ Peace": "browse_scroll",
+    "☝️ Pointing Up": "browse_tab_next",
+    "✋ Open Palm": "browse_tab_reopen",
+    "👎 Thumbs Down": "browse_tab_previous",
+}
+DEFAULTS_VERSION = 2
+
+
+def update_old_defaults(profile_manager):
+    """
+    Move a profile saved by an older Wield to the new built-in gestures,
+    keeping anything the user chose themselves. Runs once per profile.
+    Returns the gestures it took off.
+    """
+
+    profile = getattr(profile_manager, "current_profile", None)
+    if profile is None or profile.get("defaults_version", 1) >= DEFAULTS_VERSION:
+        return []
+
+    current = profile_manager.get_gesture_map()
+    removed = [g for g, action in OLD_DEFAULTS.items() if current.get(g) == action]
+    for gesture in removed:
+        del current[gesture]
+    profile["defaults_version"] = DEFAULTS_VERSION
+    profile_manager.save_profile()
+    return removed
+
+
 def add_missing_defaults(profile_manager):
     """
     Give an existing profile the default triggers of actions added since it
@@ -210,6 +248,8 @@ def add_missing_defaults(profile_manager):
             defaults = json.load(f)["gesture_map"]
     except (OSError, ValueError, KeyError):
         return []
+
+    update_old_defaults(profile_manager)
 
     current = profile_manager.get_gesture_map()
     used_actions = set(current.values())

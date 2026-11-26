@@ -7,7 +7,12 @@ from backend.paths import model_path as bundled_model_path
 
 
 # Re-exported for existing imports.
-from backend.gestures.gesture_names import BUILTIN_GESTURES, BUILTIN_GESTURE_NAMES  # noqa: E402,F401
+from backend.gestures.gesture_names import BUILTIN_GESTURES, BUILTIN_GESTURE_NAMES, POINTING_DOWN, POINTING_UP  # noqa: E402,F401
+from backend.gestures.pointing import pointing  # noqa: E402
+
+# How sure a pointing read from the hand points counts as (above the
+# stabiliser's threshold: the finger test is strict).
+POINTING_CONFIDENCE = 0.8
 
 
 class GoogleGestureRecognizer:
@@ -67,11 +72,19 @@ class GoogleGestureRecognizer:
         if result.handedness:
             self.last_handedness = result.handedness[0][0].category_name
 
-        if result.gestures:
+        gesture, confidence = None, 0.0
 
-            gesture = result.gestures[0][0].category_name
+        if result.gestures:
+            gesture = BUILTIN_GESTURES.get(result.gestures[0][0].category_name)
             confidence = result.gestures[0][0].score
 
-            return BUILTIN_GESTURES.get(gesture), confidence
+        # MediaPipe has no "pointing down" (and sometimes misses pointing
+        # up): read the finger from the hand points instead.
+        if gesture is None and self.last_image_landmarks is not None:
+            direction = pointing(self.last_image_landmarks)
+            if direction == "down":
+                return POINTING_DOWN, POINTING_CONFIDENCE
+            if direction == "up":
+                return POINTING_UP, POINTING_CONFIDENCE
 
-        return None, 0.0
+        return gesture, confidence

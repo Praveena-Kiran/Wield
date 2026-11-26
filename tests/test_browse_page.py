@@ -42,7 +42,8 @@ class BrowsePageTests(unittest.TestCase):
 
     def test_scroll_section_has_voice_motion_and_pose(self):
         rows = self.page.editors["scroll"].rows
-        self.assertIn("✌️ Peace", rows["browse_scroll"].triggers)
+        self.assertIn("☝️ Pointing Up", rows["browse_point_up"].triggers)
+        self.assertIn("👇 Pointing Down", rows["browse_point_down"].triggers)
         self.assertIn("🎤 scroll down", rows["browse_scroll_down"].triggers)
         self.assertIn("Swipe up", rows["browse_scroll_up"].triggers)
 

@@ -171,7 +171,7 @@ class VideoAndMediaTests(unittest.TestCase):
         from backend.automation import browse_media as B
         for code in B.ACTIONS:
             name, action, value = B.PROFILE_ACTIONS[code]
-            if action in ("Scroll", "VolumeHold", "Mouse"):     # live, not a command
+            if action in ("Scroll", "ScrollPoint", "VolumeHold", "Mouse"):     # live, not a command
                 continue
             self.assertIn(value, B.COMMANDS, code)
 
@@ -392,8 +392,9 @@ class ProfileTests(unittest.TestCase):
         with open(os.path.join(DEFAULT_CONFIG_DIR, "profiles", "browse.json"), encoding="utf-8") as f:
             profile = json.load(f)
         events = profile_events(profile)
-        scroll = [e for e in events if e["action"] == "Scroll"]
-        self.assertEqual([e["gesture"] for e in scroll], ["✌️ Peace"])
+        pointing = [(e["gesture"], e["value"]) for e in events if e["action"] == "ScrollPoint"]
+        self.assertEqual(pointing, [("☝️ Pointing Up", "up"), ("👇 Pointing Down", "down")])
+        self.assertNotIn("✌️ Peace", profile["gesture_map"])
 
     def test_scroll_never_runs_as_a_one_off(self):
         from backend.automation.flow_manager import FlowManager
@@ -439,11 +440,28 @@ class WorkerScrollTests(unittest.TestCase):
                 self.x, self.y = 0.5, y
         self.worker.recognizer.last_image_landmarks = [P(y)] * 21
 
+    def test_pointing_scrolls_that_way_while_held_and_nothing_else_fires(self):
+        events = []
+        self.worker.custom_event_detected.connect(events.append)
+        self.assertEqual(self.worker.scroll_poses["☝️ Pointing Up"], "point_up")
+        self.assertEqual(self.worker.scroll_poses["👇 Pointing Down"], "point_down")
+        self.assertFalse(any(e["action"] == "ScrollPoint" for e in self.worker.events))
+
+        self.hand_at(0.5)
+        for i in range(40):
+            self.worker._scroll("👇 Pointing Down", 0.9, i / 30)
+        down = sum(a for a in self.scrolls if a)
+        self.assertLess(down, 0)                       # down, wherever the hand is
+        self.scrolls.clear()
+        for i in range(40):
+            self.worker._scroll("☝️ Pointing Up", 0.9, 2 + i / 30)
+        self.assertGreater(sum(a for a in self.scrolls if a), 0)
+        self.assertEqual(events, [])
+
     def test_holding_the_scroll_pose_scrolls_and_nothing_else_fires(self):
         events = []
         self.worker.custom_event_detected.connect(events.append)
-        self.assertIn("✌️ Peace", self.worker.scroll_poses)
-        self.assertFalse(any(e["action"] == "Scroll" for e in self.worker.events))
+        self.worker.scroll_poses["✌️ Peace"] = "scroll"     # if someone picks it
 
         self.hand_at(0.5)
         self.assertTrue(self.worker._scroll("✌️ Peace", 0.9, 0.0))
@@ -469,7 +487,7 @@ class WorkerScrollTests(unittest.TestCase):
         self.assertGreater(len(progress), 5)
 
     def test_volume_pose_changes_volume_not_scroll(self):
-        self.worker.scroll_poses["☝️ Pointing Up"] = "volume"
+        self.worker.scroll_poses["☝️ Pointing Up"] = "volume"     # if someone picks it
         volume = []
         self.worker.volume_requested.connect(lambda steps, d: volume.append(steps))
         self.hand_at(0.5)

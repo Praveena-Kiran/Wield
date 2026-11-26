@@ -194,14 +194,16 @@ class GestureWorker(QObject):
         change the volume), and some actions need a held pose first.
         """
 
-        hold_and_move = {"Scroll": "scroll", "VolumeHold": "volume"}
+        hold_and_move = {"Scroll": "scroll", "VolumeHold": "volume", "ScrollPoint": "point"}
 
-        # pose -> "scroll" | "volume"
-        self.scroll_poses = {
-            event["gesture"]: hold_and_move[event["action"]]
-            for event in events
-            if event.get("action") in hold_and_move and event.get("gesture")
-        }
+        # pose -> "scroll" | "volume" | "point_up" | "point_down"
+        self.scroll_poses = {}
+        for event in events:
+            kind = hold_and_move.get(event.get("action"))
+            if kind and event.get("gesture"):
+                if kind == "point":
+                    kind = "point_down" if event.get("value") == "down" else "point_up"
+                self.scroll_poses[event["gesture"]] = kind
         if self.scroll_poses or any(e.get("action") in hold_and_move for e in events):
             self.events = [e for e in events if e.get("action") not in hold_and_move]
         else:
@@ -492,7 +494,10 @@ class GestureWorker(QObject):
             self._moving = kind
 
         holding = kind is not None
-        amount = self.scroller.update(holding, self._hand_height() if holding else None, now)
+        pointing = {"point_up": "up", "point_down": "down"}.get(kind)
+        amount = self.scroller.update(
+            holding, self._hand_height() if holding else None, now, direction=pointing,
+        )
 
         signal = self.volume_requested if kind == "volume" else self.scroll_requested
 
@@ -507,7 +512,7 @@ class GestureWorker(QObject):
         if self.require_arm:
             self._set_armed(True)      # still in use
 
-        if amount and kind == "scroll":
+        if amount and kind in ("scroll", "point_up", "point_down"):
             self.scroll_requested.emit(amount, direction)
 
         elif amount and kind == "volume":

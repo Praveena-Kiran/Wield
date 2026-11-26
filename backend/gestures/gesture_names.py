@@ -15,4 +15,8 @@ BUILTIN_GESTURES = {
     "Pointing_Up": "☝️ Pointing Up",
 }
 
-BUILTIN_GESTURE_NAMES = list(BUILTIN_GESTURES.values())
+# Worked out from the hand points, not by MediaPipe (see pointing.py).
+POINTING_DOWN = "👇 Pointing Down"
+POINTING_UP = BUILTIN_GESTURES["Pointing_Up"]
+
+BUILTIN_GESTURE_NAMES = list(BUILTIN_GESTURES.values()) + [POINTING_DOWN]

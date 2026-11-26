@@ -77,7 +77,7 @@ class AutoWorkerTests(unittest.TestCase):
         w = self.worker
         w._check_studio(0.0)
         self.assertEqual(self.studios, ["browse"])
-        self.assertIn("✌️ Peace", w.scroll_poses)
+        self.assertIn("👇 Pointing Down", w.scroll_poses)
 
         self.app = "POWERPNT.EXE"
         w._check_studio(0.1)                       # too soon: no change

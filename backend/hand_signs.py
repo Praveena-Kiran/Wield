@@ -31,8 +31,8 @@ SIGNS = [
              "Previous slide · back a web page"),
     HandSign("Swipe right", "👉", "Swipe left or right", "Forward or back",
              "Change slides · skip 10 seconds in a video"),
-    HandSign("✌️ Peace", "✌️", "Peace sign, then move", "Scroll",
-             "Move your hand up or down to scroll · start a slideshow"),
+    HandSign("☝️ Pointing Up", "☝️", "Point up or down", "Scroll",
+             "Hold it to keep scrolling a page, PDF or document"),
     HandSign("✊ Fist", "✊", "Hold a fist", "Stop or close",
              "End a slideshow · close a browser tab"),
 ]
@@ -46,8 +46,9 @@ EXPECTED = {
         "👎 Thumbs Down": "presentation_previous",
         "Swipe right": "presentation_next",
         "Swipe left": "presentation_previous",
-        "✌️ Peace": "presentation_start",
         "✊ Fist": "presentation_end",
+        # Not one of the six, kept for starting the slideshow.
+        "✌️ Peace": "presentation_start",
     },
     "browse": {
         "✋ Open Palm": None,
@@ -55,11 +56,12 @@ EXPECTED = {
         "👎 Thumbs Down": "browse_page_back",
         "Swipe right": "browse_video_forward",
         "Swipe left": "browse_video_back",
-        "✌️ Peace": "browse_scroll",
+        "☝️ Pointing Up": "browse_point_up",
+        "👇 Pointing Down": "browse_point_down",
         "✊ Fist": "browse_tab_close",
     },
 }
 
 # Every other built-in gesture is left free in the built-in studios, so
 # people only meet the six.
-OTHER_BUILT_IN_GESTURES = ("☝️ Pointing Up",)
+OTHER_BUILT_IN_GESTURES = ("✌️ Peace",)

@@ -1,7 +1,8 @@
 {
     "name": "Browse & Media",
     "gesture_map": {
-        "✌️ Peace": "browse_scroll",
+        "☝️ Pointing Up": "browse_point_up",
+        "👇 Pointing Down": "browse_point_down",
         "Swipe up": "browse_scroll_up",
         "Swipe down": "browse_scroll_down",
         "🎤 scroll up": "browse_scroll_up",
@@ -48,5 +49,6 @@
         "🎤 click": "browse_click",
         "🎤 double click": "browse_double_click",
         "🎤 right click": "browse_right_click"
-    }
+    },
+    "defaults_version": 2
 }
