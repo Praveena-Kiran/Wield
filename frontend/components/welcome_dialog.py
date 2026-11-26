@@ -126,7 +126,7 @@ class WelcomeDialog(QDialog):
         bottom.addStretch()
 
         self.skip_button = self._button("Skip", quiet=True)
-        self.skip_button.setToolTip("Skip the welcome. You can see it again in Settings → About.")
+        self.skip_button.setToolTip("Skip this. You can see it again any time in Settings.")
         self.skip_button.clicked.connect(self.finish)
 
         self.back_button = self._button("Back")
@@ -171,8 +171,8 @@ class WelcomeDialog(QDialog):
         layout.addSpacing(6)
         layout.addWidget(_label(f"Welcome to {APP_NAME}", PRIMARY_TEXT, 28, 700, center=True))
         layout.addWidget(_label(
-            "Control your computer with your hands: gestures, swipes and "
-            "moves you choose. Everything runs on this computer.",
+            "Use your computer by showing your hand to the camera, or by "
+            "talking to it. No mouse needed.",
             SECONDARY_TEXT, 15, center=True,
         ))
 
@@ -261,8 +261,8 @@ class WelcomeDialog(QDialog):
 
         layout.addWidget(_label("Let's check your camera", PRIMARY_TEXT, 24, 700))
         layout.addWidget(_label(
-            f"Hold a hand up in front of the camera. {APP_NAME} only looks; "
-            "nothing is recorded or uploaded.",
+            f"Hold one hand up so the camera can see it. {APP_NAME} only "
+            "looks. It never records you.",
             SECONDARY_TEXT, 14,
         ))
 
@@ -279,7 +279,7 @@ class WelcomeDialog(QDialog):
 
         page, layout = self._page()
 
-        layout.addWidget(_label("Try your first gesture", PRIMARY_TEXT, 24, 700))
+        layout.addWidget(_label("Try your first hand sign", PRIMARY_TEXT, 24, 700))
         layout.addWidget(_label("Give the camera a thumbs up 👍", SECONDARY_TEXT, 15))
 
         self.try_preview = self._preview()
@@ -452,7 +452,7 @@ class WelcomeDialog(QDialog):
 
     def _set_try_status(self, ok):
         if ok:
-            self.try_status.setText("✓  Nice! That's how gestures work.")
+            self.try_status.setText("✓  Well done! That's all there is to it.")
             self.try_status.setStyleSheet(f"color: {SUCCESS}; font-size: 14px; font-weight: 600; background: transparent;")
         else:
             self.try_status.setText("Waiting for a thumbs up…")
@@ -462,13 +462,14 @@ class WelcomeDialog(QDialog):
     def _on_camera_error(self, message):
         self.worker = None
         text = (
-            "Couldn't open the camera. Close apps that might be using it "
-            "(Zoom, Teams, the Camera app), and check Windows Settings → "
-            "Privacy & security → Camera → \"Let desktop apps access your "
-            "camera\". You can skip this step and try later."
+            "The camera isn't working right now. Close Zoom, Teams or the "
+            "Camera app if they're open, then try again. If it still doesn't "
+            "work, open Windows Settings → Privacy & security → Camera and "
+            "turn on \"Let desktop apps access your camera\". You can also "
+            "skip this step and come back later."
         )
         for preview in (self.camera_preview, self.try_preview):
-            preview.setText("Camera unavailable")
+            preview.setText("Camera not working")
         for status in (self.camera_status, self.try_status):
             status.setText(text)
             status.setStyleSheet(f"color: {WARNING}; font-size: 13px; background: transparent;")

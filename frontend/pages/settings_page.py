@@ -98,7 +98,7 @@ class SettingsPage(StudioPage):
 
         super().__init__(
             title="Settings",
-            subtitle=f"Make {APP_NAME} work the way you move.",
+            subtitle=f"Change how {APP_NAME} looks, listens and sees your hand.",
             parent=parent,
         )
 
@@ -151,7 +151,7 @@ class SettingsPage(StudioPage):
 
         self._build_window()
 
-        self._section("Recognition")
+        self._section("How easily Wield sees your hand")
 
         # Sensitivity -------------------------------------------------
 
@@ -169,10 +169,10 @@ class SettingsPage(StudioPage):
         slider_row.addWidget(self._muted("Forgiving"))
 
         self._row(
-            "Sensitivity",
-            "More forgiving accepts poses and movements that are less exact, "
-            "helpful with tremor or limited movement. Stricter avoids "
-            "accidental triggers.",
+            "How exact your hand needs to be",
+            "Slide towards Forgiving if Wield misses your hand signs, for "
+            "example if your hands shake. Slide towards Strict if it reacts "
+            "when you didn't mean it to.",
             slider_row,
         )
 
@@ -180,30 +180,30 @@ class SettingsPage(StudioPage):
 
         self.hold_time = self._choices(
             "hold_time",
-            [(seconds, "Instant" if seconds == 0 else f"{seconds:g} s")
+            [(seconds, "No wait" if seconds == 0 else f"{seconds:g} sec")
              for seconds in HOLD_TIME_CHOICES],
             "Hold time",
         )
 
         self._row(
-            "Hold to trigger",
-            "How long a pose must be held before it does anything. "
-            "Motions are not affected.",
+            "How long to hold a hand sign",
+            "Wield waits this long before it acts, so a quick wave doesn't "
+            "do anything by mistake. Swipes don't wait.",
             self.hold_time,
         )
 
-        self._section("Activation gesture")
+        self._section("Wake-up hand sign")
 
         # Activation --------------------------------------------------
 
-        self.require_arm = QCheckBox("Only respond after an activation gesture")
+        self.require_arm = QCheckBox("Wait for a wake-up hand sign first")
         self.require_arm.setChecked(self.settings["require_arm"])
         self.require_arm.toggled.connect(self._on_require_arm)
 
         self._row(
             None,
-            "Stops everyday hand movements, like talking with your hands on "
-            "a call, from triggering anything.",
+            "Wield ignores your hands until you show this sign. Handy if you "
+            "talk with your hands on video calls.",
             self.require_arm,
         )
 
@@ -217,47 +217,47 @@ class SettingsPage(StudioPage):
         )
 
         self.arm_gesture_row = self._row(
-            "Gesture", "Make this to start responding.", self.arm_gesture
+            "Wake-up sign", "Show this to wake Wield up.", self.arm_gesture
         )
 
         self.arm_timeout = self._choices(
             "arm_timeout",
-            [(seconds, f"{seconds} s") for seconds in ARM_TIMEOUT_CHOICES],
+            [(seconds, f"{seconds} sec") for seconds in ARM_TIMEOUT_CHOICES],
             "Switch off after",
         )
 
         self.arm_timeout_row = self._row(
-            "Switch off after",
-            "Seconds without gestures before Wield stops responding again.",
+            "Go back to sleep after",
+            "If you don't use a hand sign for this long, Wield stops "
+            "watching until you wake it again.",
             self.arm_timeout,
         )
 
         self._on_require_arm(self.settings["require_arm"], save=False)
 
-        self._section("Feedback")
+        self._section("Sounds and messages")
 
-        self.sound_feedback = QCheckBox("Play soft sounds")
+        self.sound_feedback = QCheckBox("Play a soft sound when Wield does something")
         self.sound_feedback.setChecked(self.settings["sound_feedback"])
         self.sound_feedback.toggled.connect(
             lambda checked: self._save("sound_feedback", bool(checked))
         )
         self._row(
             None,
-            "A short chime when Wield starts listening and when it runs an "
-            "action, so you know it worked without looking.",
+            "So you know it worked without looking at the screen.",
             self.sound_feedback,
         )
 
-        self.feedback_overlay = QCheckBox("Show what Wield did on top of other windows")
+        self.feedback_overlay = QCheckBox("Show a small message when Wield does something")
         self.feedback_overlay.setChecked(self.settings["feedback_overlay"])
         self.feedback_overlay.toggled.connect(
             lambda checked: self._save("feedback_overlay", bool(checked))
         )
         self._row(
             None,
-            "A small note at the bottom of the screen, e.g. \u201c\U0001F44D \u2192 "
-            "Next slide\u201d. It shows over full-screen slideshows and never "
-            "gets in the way of clicks.",
+            "For example \u201c\U0001F44D \u2192 Next slide\u201d at the bottom of "
+            "your screen. It also shows over slideshows, and you can click "
+            "through it.",
             self.feedback_overlay,
         )
 
@@ -265,7 +265,7 @@ class SettingsPage(StudioPage):
 
         self._build_studios()
 
-        self._section("Your data")
+        self._section("Your information")
 
         self._row(
             "History",
@@ -274,7 +274,7 @@ class SettingsPage(StudioPage):
             self._small_button("See history", self.history_requested.emit),
         )
 
-        data_button = QPushButton("Open data folder")
+        data_button = QPushButton("Show me where")
         data_button.setCursor(Qt.PointingHandCursor)
         data_button.setStyleSheet(f"""
             QPushButton {{
@@ -287,8 +287,9 @@ class SettingsPage(StudioPage):
         data_button.clicked.connect(self._open_data_folder)
 
         self._row(
-            "Stored on this computer",
-            f"Studios, settings and your recorded gestures: {user_data_dir()}",
+            "Kept only on this computer",
+            "Your studios, settings and the hand signs you taught Wield are "
+            "saved here, and nowhere else.",
             data_button,
         )
 
@@ -318,28 +319,28 @@ class SettingsPage(StudioPage):
 
         from backend.app_info import APP_NAME, VERSION
 
-        self._section("About")
+        self._section("Help and updates")
 
         self._row(
             f"{APP_NAME} {VERSION}",
-            "Your camera is processed on this computer and never recorded or "
-            "uploaded. Gestures, notes and activity are stored only in your "
-            "data folder above.",
+            "Wield never records your camera or your voice, and nothing is "
+            "sent over the internet.",
             QWidget(),
         )
 
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
-        buttons.addWidget(self._small_button("Open log", self._open_log))
-        buttons.addWidget(self._small_button("Report a problem", self._report_problem))
+        buttons.addWidget(self._small_button("Show the log", self._open_log))
+        buttons.addWidget(self._small_button("Tell us about a problem", self._report_problem))
         buttons.addWidget(self._small_button("Take the tour", self.tour_requested.emit))
-        buttons.addWidget(self._small_button("Show welcome again", self.welcome_requested.emit))
+        buttons.addWidget(self._small_button("Start the welcome again", self.welcome_requested.emit))
         buttons.addStretch()
 
         self._row(
             None,
-            "If something isn't working, the log helps explain why. Reporting "
-            "opens a GitHub issue; attach the log if you can.",
+            "Something not working? \u201cTell us about a problem\u201d opens a "
+            "short form on the web. The log is a list of what Wield did, "
+            "which helps us find the problem.",
             buttons,
         )
 
@@ -365,8 +366,8 @@ class SettingsPage(StudioPage):
 
         self._row(
             "Updates",
-            f"{APP_NAME} checks GitHub for a new version once a day and shows a "
-            "note with a Download link. Nothing about you is sent.",
+            f"Once a day, {APP_NAME} checks if there's a newer version and "
+            "tells you. Nothing about you is sent.",
             update_row,
         )
 
@@ -384,7 +385,7 @@ class SettingsPage(StudioPage):
             )
         else:
             self.update_result.setText(
-                f"You're up to date ({VERSION}), or GitHub couldn't be reached."
+                f"You have the newest version ({VERSION}). (Or the internet couldn't be reached.)"
             )
 
     def _open_log(self):
@@ -433,7 +434,7 @@ class SettingsPage(StudioPage):
         """)
         self.name_input.editingFinished.connect(self._on_name)
 
-        self._row("Your name", "Used in the greeting on Home.", self.name_input)
+        self._row("Your name", "So Wield can say hello to you.", self.name_input)
 
     def _on_name(self):
         from backend.settings.user import set_display_name
@@ -447,7 +448,7 @@ class SettingsPage(StudioPage):
 
     def _build_appearance(self):
 
-        self._section("Appearance")
+        self._section("How Wield looks")
 
         row = QHBoxLayout()
         row.setSpacing(12)
@@ -499,7 +500,7 @@ class SettingsPage(StudioPage):
 
         box = self._row(
             "Theme",
-            "Galaxy and Jungle add a little scenery behind the app.",
+            "Pick the colours you like. Galaxy and Jungle add a picture behind everything.",
             row,
         )
 
@@ -510,27 +511,24 @@ class SettingsPage(StudioPage):
 
     def _build_hands_free(self):
 
-        self._section("Hands-free mode")
+        self._section("Use Wield in any app")
 
-        self.hands_free = QCheckBox("Always watch for my wake gesture")
+        self.hands_free = QCheckBox("Keep Wield ready in the background")
         self.hands_free.setChecked(self.settings["hands_free"])
         self.hands_free.toggled.connect(self._on_hands_free)
         self._row(
             None,
-            f"No need to open a studio: make your activation gesture "
-            f"({self.settings['arm_gesture']}, set under Activation gesture) or say "
-            "“Hey Wield, wake up”, and use your gestures in any app. Wield uses "
-            "Presentation Studio's gestures when PowerPoint is in front and Browse "
-            "& Media's everywhere else, and goes back to sleep after a while "
-            "without gestures (“Hey Wield, go to sleep” does it straight away). "
-            "Your camera stays on while this is on, and closing the window keeps "
-            "Wield running in the tray.",
+            f"You don't need to open Wield first. Show "
+            f"{self.settings['arm_gesture']} to the camera, or say "
+            "“Hey Wield, wake up”, and your hand signs work in any app: slides "
+            "in PowerPoint, and videos, music and web pages everywhere else. "
+            "Your camera stays on while this is ticked.",
             self.hands_free,
         )
 
         self.hands_free_timeout = self._choices(
             "hands_free_timeout",
-            [(seconds, f"{seconds} s") for seconds in gesture_settings.HANDS_FREE_TIMEOUTS],
+            [(seconds, f"{seconds} sec") for seconds in gesture_settings.HANDS_FREE_TIMEOUTS],
             "Sleep after",
         )
         self._row("Go back to sleep after", None, self.hands_free_timeout)
@@ -539,8 +537,8 @@ class SettingsPage(StudioPage):
         self._save("hands_free", bool(checked))
         self.hands_free_changed.emit(bool(checked))
         self.notify(
-            "Hands-free mode on. Make your activation gesture to wake Wield."
-            if checked else "Hands-free mode off."
+            "Wield is ready. Show your wake-up sign to use it."
+            if checked else "Wield is no longer waiting in the background."
         )
 
     # -----------------------------------------------------
@@ -568,8 +566,8 @@ class SettingsPage(StudioPage):
 
         self._row(
             "Studios that come with Wield",
-            f"{', '.join(catalog.CORE)} are always there. The others (like "
-            "Coding and Gaming) can be removed on Home with ✕ and brought back here.",
+            "Removed a studio from Home by mistake? Bring it back here. "
+            "(Presentation, Browse & Media and Gesture Studio can't be removed.)",
             row,
         )
         self._refresh_studios_note()
@@ -596,17 +594,17 @@ class SettingsPage(StudioPage):
 
     def _build_window(self):
 
-        self._section("Your window")
+        self._section("The misty window on Home")
 
         self.fog_colour = self._choices(
             "fog_colour",
-            [("white", "White fog"), ("black", "Black fog")],
+            [("white", "White"), ("black", "Black")],
             "Fog colour",
         )
         self._row(
-            "Fog",
-            "The mist you write on, on Home. The writing switches to dark ink "
-            "on white fog and light ink on black fog, so it is always easy to read.",
+            "Mist colour",
+            "On Home you can write on a misty window with your finger. Pick "
+            "white or black mist.",
             self.fog_colour,
         )
 
@@ -617,8 +615,7 @@ class SettingsPage(StudioPage):
         )
         self._row(
             "Pen size",
-            "How thick your writing is. Thick is easier to read and more "
-            "forgiving if your hand moves a little.",
+            "How thick your writing is. Thick is easier to read.",
             self.fog_stroke,
         )
 
@@ -672,30 +669,27 @@ class SettingsPage(StudioPage):
 
     def _build_voice(self):
 
-        self._section("Voice commands")
+        self._section("Talking to Wield")
 
-        self.voice_enabled = QCheckBox("Listen for spoken commands")
+        self.voice_enabled = QCheckBox("Let me talk to Wield")
         self.voice_enabled.setChecked(self.settings["voice_enabled"])
         self.voice_enabled.toggled.connect(self._on_voice_enabled)
         self._row(
             None,
-            "Say a phrase instead of (or as well as) making a gesture, e.g. "
-            "\u201cHey Wield, next slide\u201d. Choose phrases for each action in "
-            "Gesture Studio. Speech is recognised on this computer: no audio "
-            "is recorded or sent anywhere.",
+            "Say what you want instead of using your hands, like "
+            "\u201cHey Wield, next slide\u201d. Your voice never leaves this "
+            "computer and is never recorded.",
             self.voice_enabled,
         )
 
-        self.voice_wake_word = QCheckBox("Only respond after \u201cHey Wield\u201d")
+        self.voice_wake_word = QCheckBox("Only listen after I say \u201cHey Wield\u201d")
         self.voice_wake_word.setChecked(self.settings["voice_wake_word"])
         self.voice_wake_word.toggled.connect(
             lambda checked: self._save("voice_wake_word", bool(checked))
         )
         self._row(
             None,
-            "Recommended, so words in your talk (\u201c\u2026as the next slide "
-            "shows\u2026\u201d) don't change anything. You can say it on its own "
-            "and then the command within 5 seconds.",
+            "Best left on, so normal talking doesn't do anything by mistake.",
             self.voice_wake_word,
         )
 
@@ -706,14 +700,14 @@ class SettingsPage(StudioPage):
         )
 
         self.voice_download = self._small_button(
-            f"Download speech model ({voice_model.MODEL_SIZE_MB} MB)",
+            f"Download it ({voice_model.MODEL_SIZE_MB} MB)",
             self._download_voice_model,
         )
 
         model_row = QHBoxLayout()
         model_row.addWidget(self.voice_download)
         model_row.addWidget(self.voice_model_status, 1)
-        self._row("Speech model", None, model_row)
+        self._row("Voice pack", None, model_row)
 
         self._download_thread = None
         self._refresh_voice_status()
@@ -736,9 +730,9 @@ class SettingsPage(StudioPage):
             text = ("Voice commands need two extra packages: "
                     "pip install vosk sounddevice")
         elif ready:
-            text = "\u2713 Installed. Voice commands work offline."
+            text = "\u2713 Ready. Talking works even without internet."
         else:
-            text = "Needed once for voice commands. Stored on this computer."
+            text = "Wield needs this once to understand your voice."
         self.voice_model_status.setText(text)
 
     def _download_voice_model(self):
@@ -866,7 +860,7 @@ class SettingsPage(StudioPage):
         if key.startswith("fog_"):
             self.notify("Saved. You'll see it on your window on Home.")
         else:
-            self.notify("Saved. Applies next time a studio starts listening.")
+            self.notify("Saved. You'll notice it next time you press Start.")
 
     def _on_sensitivity(self, value):
         self._save("sensitivity", int(value))

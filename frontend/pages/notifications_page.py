@@ -51,7 +51,7 @@ class NotificationsPage(StudioPage):
 
         super().__init__(
             title="Notifications",
-            subtitle=f"Suggestions and the things {APP_NAME} does for you.",
+            subtitle=f"Ideas from {APP_NAME}, and the things it does for you each day.",
             parent=parent,
         )
 
@@ -66,19 +66,19 @@ class NotificationsPage(StudioPage):
             QCheckBox::indicator:checked {{ background: {PRIMARY}; border: 1px solid {PRIMARY}; }}
         """)
 
-        self._heading("Suggestions")
+        self._heading("Ideas for you")
         self.suggestions_layout = QVBoxLayout()
         self.suggestions_layout.setSpacing(8)
         self.content_layout.addLayout(self.suggestions_layout)
 
-        self._heading("Your automations")
+        self._heading("Things Wield does for you")
         self.routines_layout = QVBoxLayout()
         self.routines_layout.setSpacing(8)
         self.content_layout.addLayout(self.routines_layout)
 
-        self._heading("Running on time")
+        self._heading("So it happens on time")
 
-        self.background = QCheckBox(f"Keep {APP_NAME} running in the system tray when I close it")
+        self.background = QCheckBox(f"Keep {APP_NAME} running when I close its window")
         self.background.toggled.connect(
             lambda on: SettingsManager().set_setting("run_in_background", bool(on))
         )
@@ -89,7 +89,7 @@ class NotificationsPage(StudioPage):
         self.at_login.toggled.connect(self._on_at_login)
         self.content_layout.addWidget(self.at_login)
 
-        note = QLabel(f"Automations only run while {APP_NAME} is open, so keep one of these on.")
+        note = QLabel(f"{APP_NAME} can only do these things while it's running, so keep at least one of these ticked. (When the window is closed, {APP_NAME} waits as a small icon near the clock.)")
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; background: transparent;")
         self.content_layout.addWidget(note)
@@ -168,8 +168,8 @@ class NotificationsPage(StudioPage):
 
         if not suggestions:
             self.suggestions_layout.addWidget(self._muted(
-                "Nothing new. When you do the same thing around the same time "
-                f"on most days, {APP_NAME} will offer to do it for you."
+                "Nothing new. If you open the same studio at about the same time "
+                f"most days, {APP_NAME} will offer to open it for you."
             ))
 
         for s in suggestions:
@@ -179,12 +179,12 @@ class NotificationsPage(StudioPage):
             text.setStyleSheet(f"color: {PRIMARY_TEXT}; font-size: 14px;")
             layout.addWidget(text, 1)
 
-            automate = self._button(f"Automate at {s['time']}", primary=True)
+            automate = self._button(f"Yes, do it at {s['time']}", primary=True)
             automate.clicked.connect(lambda checked=False, s=s: self._accept(s))
             layout.addWidget(automate)
 
-            dismiss = self._button("Dismiss")
-            dismiss.setToolTip("Hide this suggestion for 30 days")
+            dismiss = self._button("No thanks")
+            dismiss.setToolTip("Don't suggest this for a month")
             dismiss.clicked.connect(lambda checked=False, s=s: self._dismiss(s))
             layout.addWidget(dismiss)
 
@@ -193,7 +193,7 @@ class NotificationsPage(StudioPage):
         self._clear(self.routines_layout)
 
         if not self.store.routines:
-            self.routines_layout.addWidget(self._muted("No automations yet."))
+            self.routines_layout.addWidget(self._muted("Nothing yet."))
 
         for routine in self.store.routines:
             self.routines_layout.addWidget(self._routine_row(routine))
@@ -249,7 +249,7 @@ class NotificationsPage(StudioPage):
 
     def _delete(self, routine):
         answer = QMessageBox.question(
-            self, "Delete Automation", f"Stop doing this automatically?\n\n{routine_text(routine)}"
+            self, "Stop this", f"Stop doing this for you?\n\n{routine_text(routine)}"
         )
         if answer == QMessageBox.Yes:
             self.store.remove(routine["id"])
@@ -260,7 +260,7 @@ class NotificationsPage(StudioPage):
         try:
             startup.set_enabled(enabled)
         except Exception as e:
-            QMessageBox.warning(self, "Couldn't change startup", str(e))
+            QMessageBox.warning(self, "Couldn't change this", str(e))
             self.at_login.blockSignals(True)
             self.at_login.setChecked(startup.is_enabled())
             self.at_login.blockSignals(False)
