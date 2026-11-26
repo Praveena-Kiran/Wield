@@ -21,31 +21,45 @@ import wave
 from backend.paths import user_data_dir
 
 SAMPLE_RATE = 22050
-VOLUME = 0.22          # quiet: these should never startle anyone
-FADE = 0.012           # seconds of fade in/out (avoids clicks)
+VOLUME = 0.07          # very quiet: a gentle "tink", never a beep
+ATTACK = 0.008         # seconds to reach full volume (no click)
+GAP = 0.03             # seconds between two notes
 
-# name -> [(frequency Hz, seconds), ...]
+# Version of the sounds: part of the file names, so new sounds replace
+# the files made by an older Wield.
+SOUND_VERSION = 2
+
+# name -> [(frequency Hz, seconds), ...]. Lower, rounder notes than a
+# beep; each one rings out and fades like a small bell.
 CUES = {
-    "armed": [(660, 0.07), (880, 0.10)],
-    "action": [(988, 0.09)],
-    "disarmed": [(660, 0.07), (494, 0.10)],
-    "error": [(247, 0.20)],
+    "armed": [(523.25, 0.16), (659.25, 0.26)],      # C5 then E5, rising
+    "action": [(587.33, 0.20)],                     # one soft D5
+    "disarmed": [(659.25, 0.16), (523.25, 0.26)],   # E5 then C5, falling
+    "error": [(293.66, 0.30)],                      # a low, soft D4
 }
 
 MIN_GAP = 0.12  # seconds between two plays of the same cue
 
 
-def tone_frames(notes, rate=SAMPLE_RATE, volume=VOLUME, fade=FADE):
-    """16-bit mono PCM bytes for a list of (frequency, seconds) notes."""
+def tone_frames(notes, rate=SAMPLE_RATE, volume=VOLUME, attack=ATTACK):
+    """
+    16-bit mono PCM bytes for a list of (frequency, seconds) notes: a soft
+    bell-like tone (the note plus a quieter octave above), a quick gentle
+    attack and a long fade to silence.
+    """
     frames = bytearray()
-    fade_n = max(1, int(fade * rate))
+    attack_n = max(1, int(attack * rate))
     for frequency, seconds in notes:
         n = int(seconds * rate)
         for i in range(n):
-            envelope = min(1.0, i / fade_n, (n - 1 - i) / fade_n)
-            value = volume * envelope * math.sin(2 * math.pi * frequency * i / rate)
-            frames += struct.pack("<h", int(value * 32767))
-        frames += b"\x00\x00" * int(0.015 * rate)  # tiny gap between notes
+            t = i / rate
+            rise = min(1.0, i / attack_n)
+            decay = math.exp(-5.0 * t / seconds)          # rings out
+            tail = min(1.0, (n - 1 - i) / attack_n)        # no click at the end
+            tone = (math.sin(2 * math.pi * frequency * t)
+                    + 0.25 * math.sin(2 * math.pi * 2 * frequency * t)) / 1.25
+            frames += struct.pack("<h", int(volume * rise * decay * tail * tone * 32767))
+        frames += b"\x00\x00" * int(GAP * rate)
     return bytes(frames)
 
 
@@ -83,11 +97,17 @@ class SoundCues:
         self._last = {}
 
     def path(self, cue):
-        return os.path.join(self.folder, f"{cue}.wav")
+        return os.path.join(self.folder, f"{cue}-v{SOUND_VERSION}.wav")
 
     def ensure_files(self):
         os.makedirs(self.folder, exist_ok=True)
         for cue, notes in CUES.items():
+            old = os.path.join(self.folder, f"{cue}.wav")      # an older Wield's
+            if os.path.exists(old):
+                try:
+                    os.remove(old)
+                except OSError:
+                    pass
             if not os.path.exists(self.path(cue)):
                 write_wav(self.path(cue), notes)
 
