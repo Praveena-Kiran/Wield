@@ -2228,62 +2228,65 @@ class MainWindow(QMainWindow):
                 prepare=show_home(),
             )
 
+        def hand_signs():
+            self.go_home()
+            home.scroll.ensureWidgetVisible(home.hand_signs_card, 0, 40)
+
         steps = [
             intro,
             TourStep(
-                "Your window",
-                "Press <b>Start camera</b>, then point one finger to write on the fog. "
-                "A fist pauses, an open palm held for a second wipes it. Pick the pen "
-                "size and fog colour just below.",
-                target=lambda: home.fog, prepare=show_home(),
-            ),
-            TourStep(
-                "Camera status",
-                "Always shows whether your camera is on, and what hands-free mode is "
-                "doing. Your camera is only ever used on this computer.",
-                target=lambda: home.camera_pill, prepare=show_home(),
+                "Your hand signs",
+                "These six are all you need to learn. They do the same kind of "
+                "thing in every app. For anything else, just say it.",
+                target=lambda: home.hand_signs_card, prepare=hand_signs,
             ),
             TourStep(
                 "Your studios",
-                "Each studio is a set of gestures for one job. <b>Click a row</b> to "
-                "open it. Optional studios have a ✕ to remove them; bring them back "
-                "in Settings.",
+                "Each studio is set up for one job, like slides or videos. "
+                "<b>Click one</b> to open it.",
                 target=studio_rows, prepare=home_studios,
             ),
             TourStep(
                 "Browse & Media Studio",
-                "Scroll, control videos and music, switch tabs and use the hand mouse. "
-                "<b>Click a section</b> to open it; <b>+</b> adds a gesture, motion or "
-                "phrase, ✕ removes one.",
+                "For web pages, videos and music. <b>Click a section</b> to see what "
+                "you can do. <b>+</b> adds a hand sign or a phrase, ✕ removes one.",
                 target=lambda: [f for f, *_ in browse.sections.values()], prepare=open_browse,
             ),
             TourStep(
                 "Start",
-                "Press Start, then switch to your browser, a PDF or Word. Wield keeps "
-                "watching in the background.",
+                "Press Start, then go to your browser, a PDF or Word. Wield keeps "
+                "working in the background.",
                 target=lambda: browse.start_button, prepare=open_browse,
             ),
             TourStep(
                 "What can I do?",
-                "Shows every gesture and phrase on screen, over any app. You can also "
-                "say <b>“Hey Wield, help”</b>.",
+                "Shows everything you can do, over any app. You can also say "
+                "<b>“Hey Wield, help”</b>.",
                 target=lambda: browse.help_button, prepare=open_browse,
             ),
             TourStep(
-                "Hands-free mode",
-                "Turn this on and you won't need to open a studio: make ✋ (or say "
-                "“Hey Wield, wake up”) and your gestures work in any app.",
+                "Use Wield in any app",
+                "Tick this and you don't need to open Wield first: show ✋ or say "
+                "“Hey Wield, wake up”. A green dot on Wield's icon by the clock "
+                "shows when the camera or microphone is on.",
                 target=lambda: settings.hands_free, prepare=show_page(settings, settings.hands_free),
             ),
             TourStep(
-                "Voice commands",
-                "Turn on voice and download the small speech model once. Then say "
-                "“Hey Wield, scroll down”, “next slide”, “mouse mode”…",
+                "Talking to Wield",
+                "Tick this and download the voice pack once. Then say “Hey Wield, "
+                "scroll down”, “next slide”, “go to page 12”…",
                 target=lambda: settings.voice_enabled, prepare=show_page(settings, settings.voice_enabled),
             ),
             TourStep(
+                "The misty window",
+                "Just for fun: press <b>Start camera</b>, then point a finger to "
+                "write on the mist.",
+                target=lambda: home.fog, prepare=show_home(),
+            ),
+            TourStep(
                 "You're all set",
-                "Take this tour again any time: <b>Settings → About → Take the tour</b>.",
+                "You can take this tour again any time in <b>Settings → Help and "
+                "updates → Take the tour</b>.",
                 prepare=show_home(),
             ),
         ]

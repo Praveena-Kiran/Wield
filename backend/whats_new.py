@@ -12,6 +12,13 @@ from backend.settings.settings_manager import SettingsManager
 SEEN_KEY = "tour_seen_version"
 
 NOTES = {
+    "1.4.0": [
+        "<b>Six hand signs</b> that mean the same thing in every app. See them on Home.",
+        "<b>Point to scroll</b>: ☝️ point up or 👇 down and hold.",
+        "<b>“Hey Wield, go to page 12”</b> in Word and PDFs.",
+        "<b>Themes change straight away</b>, and everything is worded more simply.",
+        "<b>You can see when Wield is listening</b>: a green dot on its icon by the clock. Softer sounds, too.",
+    ],
     "1.3.0": [
         "<b>Hands-free mode</b>: Wield watches in the background; ✋ or “Hey Wield, wake up” and your gestures work in any app.",
         "<b>Hand mouse</b>: “Hey Wield, mouse mode”, then point to move and pinch to click.",

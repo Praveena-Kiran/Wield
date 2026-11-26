@@ -190,6 +190,10 @@ class Tour(QWidget):
             text += "<ul style='margin-left:-20px;'>" + "".join(
                 f"<li style='margin-bottom:4px;'>{item}</li>" for item in step.extra) + "</ul>"
         self.card.text.setText(text)
+        # Rich text (the what's-new list) needs measuring at the real width,
+        # or the card comes out too short and clips the last lines.
+        self.card.text.ensurePolished()
+        self.card.text.setMinimumHeight(self.card.text.heightForWidth(CARD_WIDTH - 44) + 8)
         self.card.back.setVisible(self.index > 0)
         self.card.next.setText("Done" if last else "Next")
         self.card.skip.setVisible(not last)
