@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 SHOW_MS = 20000
 COLUMNS = 3
+LINE_WIDTH = 280
 
 
 class CheatSheet(QWidget):
@@ -99,12 +100,25 @@ class CheatSheet(QWidget):
             empty.setStyleSheet("color: #A69F96; font-size: 14px;")
             self.layout_.addWidget(empty)
         else:
-            grid = QGridLayout()
-            grid.setHorizontalSpacing(28)
-            grid.setVerticalSpacing(14)
-            for i, (section, rows) in enumerate(sections):
-                grid.addWidget(_section(section, rows), i // COLUMNS, i % COLUMNS, Qt.AlignTop)
-            self.layout_.addLayout(grid)
+            # Sections go into balanced columns (shortest column next), so a
+            # long list doesn't make the card taller than a laptop screen.
+            columns = COLUMNS if len(sections) <= 6 else COLUMNS + 1
+            row = QHBoxLayout()
+            row.setSpacing(28)
+            stacks, heights = [], []
+            for _ in range(columns):
+                stack = QVBoxLayout()
+                stack.setSpacing(14)
+                row.addLayout(stack)
+                stacks.append(stack)
+                heights.append(0)
+            for section, rows in sections:
+                i = heights.index(min(heights))
+                stacks[i].addWidget(_section(section, rows))
+                heights[i] += len(rows) + 1
+            for stack in stacks:
+                stack.addStretch()
+            self.layout_.addLayout(row)
 
         if footer:
             note = QLabel(footer)
@@ -151,10 +165,10 @@ def _section(title, rows):
         )
         line.setTextFormat(Qt.TextFormat.RichText)
         line.setWordWrap(True)
-        line.setFixedWidth(300)
+        line.setFixedWidth(LINE_WIDTH)
         line.setStyleSheet("font-size: 13px;")
         line.ensurePolished()        # measure with the real font size
-        line.setMinimumHeight(line.heightForWidth(300) + 4)
+        line.setMinimumHeight(line.heightForWidth(LINE_WIDTH) + 4)
         layout.addWidget(line)
     return box
 

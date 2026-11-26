@@ -48,7 +48,20 @@
         "🎤 stop mouse": "browse_mouse_off",
         "🎤 click": "browse_click",
         "🎤 double click": "browse_double_click",
-        "🎤 right click": "browse_right_click"
+        "🎤 right click": "browse_right_click",
+        "🎤 new tab": "browse_new_tab",
+        "🎤 reload": "browse_reload",
+        "🎤 refresh": "browse_reload",
+        "🎤 find on page": "browse_find",
+        "🎤 bookmark this": "browse_bookmark",
+        "🎤 show downloads": "browse_downloads",
+        "🎤 new browser window": "browse_new_window",
+        "🎤 open youtube": "browse_open_youtube",
+        "🎤 open gmail": "browse_open_gmail",
+        "🎤 open google": "browse_open_google",
+        "🎤 open maps": "browse_open_maps",
+        "🎤 open whatsapp": "browse_open_whatsapp",
+        "🎤 open netflix": "browse_open_netflix"
     },
     "defaults_version": 2
 }

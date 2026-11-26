@@ -173,6 +173,9 @@ class VideoAndMediaTests(unittest.TestCase):
             name, action, value = B.PROFILE_ACTIONS[code]
             if action in ("Scroll", "ScrollPoint", "VolumeHold", "Mouse"):     # live, not a command
                 continue
+            if action == "Open Website":                     # the studio runner opens it
+                self.assertTrue(value.startswith("https://"), code)
+                continue
             self.assertIn(value, B.COMMANDS, code)
 
     def test_runner_uses_the_controller(self):
