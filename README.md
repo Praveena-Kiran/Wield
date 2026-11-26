@@ -136,7 +136,7 @@ python main.py
 
 Your studios, settings and recordings are stored in `%APPDATA%\Wield`
 (`~/.config/wield` on Linux), so they survive updates. Settings → About has the
-log file and a "Report a problem" button.
+log file and a "Tell us about a problem" button that writes an email to hipraveenakiran@gmail.com.
 
 ### Tests
 

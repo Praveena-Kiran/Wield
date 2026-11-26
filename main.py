@@ -2715,14 +2715,24 @@ class _CrashNotifier(QObject):
 
         self._shown = True
 
-        QMessageBox.warning(
-            None,
-            f"{APP_NAME} hit a problem",
-            f"Something went wrong: {error}\n\n"
-            f"{APP_NAME} will keep running, but if things look wrong, "
-            "restart it. Details were saved to the log "
-            "(Settings → About → Open log).",
+        # Plain words first; the technical part is under "Show details"
+        # and goes into the email.
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(f"{APP_NAME} hit a problem")
+        box.setText(f"Sorry, something went wrong inside {APP_NAME}.")
+        box.setInformativeText(
+            f"{APP_NAME} is still running. If something looks wrong, close it "
+            "and open it again.\n\nIt helps a lot if you tell us: "
+            "\u201cEmail us about it\u201d writes the email for you."
         )
+        box.setDetailedText(str(error))
+        email = box.addButton("Email us about it", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("OK", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is email:
+            from frontend.components.report import report_problem
+            report_problem(error)
 
 
 # =============================================================

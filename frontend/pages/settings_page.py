@@ -338,9 +338,10 @@ class SettingsPage(StudioPage):
 
         self._row(
             None,
-            "Something not working? \u201cTell us about a problem\u201d opens a "
-            "short form on the web. The log is a list of what Wield did, "
-            "which helps us find the problem.",
+            "Something not working? \u201cTell us about a problem\u201d writes an "
+            "email for you (to hipraveenakiran@gmail.com). The log is a list of "
+            "what Wield did, which helps find the problem. It never contains "
+            "anything you said.",
             buttons,
         )
 
@@ -396,18 +397,12 @@ class SettingsPage(StudioPage):
         self._open_path(path)
 
     def _report_problem(self):
-        from urllib.parse import urlencode
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-        from backend.app_info import APP_NAME, ISSUES_URL, VERSION
-
-        body = (
-            "**What happened?**\n\n\n"
-            "**What did you expect?**\n\n\n"
-            f"---\n{APP_NAME} {VERSION} on {platform.system()} {platform.release()}\n"
-            "(Settings → About → Open log, and attach wield.log if you can.)"
+        from frontend.components.report import report_problem
+        address = report_problem()
+        self.notify(
+            f"Your email app should open now. If it doesn't, write to {address} "
+            "(it's copied, just paste it).", "info",
         )
-        QDesktopServices.openUrl(QUrl(ISSUES_URL + "?" + urlencode({"body": body})))
 
     # -----------------------------------------------------
     # YOU
