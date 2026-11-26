@@ -68,8 +68,12 @@ class _ModelDownloader(QObject):
 
 class SettingsPage(StudioPage):
 
-    # The main window restarts the app (themes apply at startup).
-    restart_requested = Signal()
+    # A theme was picked: the main window switches to it straight away.
+    theme_chosen = Signal(str)
+
+    # "See history" (the list of what Wield did, which used to have its
+    # own place in the sidebar).
+    history_requested = Signal()
 
     # The display name changed (greeting and sidebar update).
     name_changed = Signal()
@@ -262,6 +266,13 @@ class SettingsPage(StudioPage):
         self._build_studios()
 
         self._section("Your data")
+
+        self._row(
+            "History",
+            "A list of everything Wield did for you, like opening a studio "
+            "or moving to the next slide.",
+            self._small_button("See history", self.history_requested.emit),
+        )
 
         data_button = QPushButton("Open data folder")
         data_button.setCursor(Qt.PointingHandCursor)
@@ -492,31 +503,6 @@ class SettingsPage(StudioPage):
             row,
         )
 
-        self.restart_row = QHBoxLayout()
-
-        self.restart_note = QLabel(f"Restart {APP_NAME} to apply the new theme.")
-        self.restart_note.setStyleSheet(
-            f"color: {SECONDARY_TEXT}; font-size: 13px; background: transparent;"
-        )
-
-        self.restart_button = QPushButton("Restart now")
-        self.restart_button.setCursor(Qt.PointingHandCursor)
-        self.restart_button.setStyleSheet(f"""
-            QPushButton {{
-                background: {PRIMARY}; color: {ON_PRIMARY}; border: none;
-                border-radius: 10px; padding: 9px 16px;
-                font-size: 13px; font-weight: 600;
-            }}
-            QPushButton:hover {{ background: {PRIMARY_HOVER}; }}
-        """)
-        self.restart_button.clicked.connect(self.restart_requested.emit)
-
-        self.restart_row.addWidget(self.restart_note)
-        self.restart_row.addWidget(self.restart_button)
-        self.restart_row.addStretch()
-        box.layout().addLayout(self.restart_row)
-
-        self._show_restart(saved != theme_module.THEME_NAME)
 
     # -----------------------------------------------------
     # HANDS-FREE MODE
@@ -673,14 +659,8 @@ class SettingsPage(StudioPage):
         row.group = group
         return row
 
-    def _show_restart(self, visible):
-        self.restart_note.setVisible(visible)
-        self.restart_button.setVisible(visible)
-
     def _on_theme(self, name):
-        SettingsManager().set_setting(theme_module.SETTING_KEY, name)
-        self._show_restart(name != theme_module.THEME_NAME)
-        self.notify(f"{theme_module.THEMES[name]['label']} theme saved.")
+        self.theme_chosen.emit(name)
 
     # -----------------------------------------------------
     # LAYOUT HELPERS

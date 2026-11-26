@@ -1,8 +1,9 @@
 """Wield navigation sidebar.
 
 Line icons are drawn in code (no image files or emoji), so they take the
-theme's colours. Items: Home, Studios, Notifications (with a count badge),
-History, Settings; the user's name at the bottom opens Settings.
+theme's colours. Items: Home (your studios are there), Notifications (with
+a count badge) and Settings (your history is in there too); your name at
+the bottom opens Settings as well.
 """
 
 from typing import Dict, Optional
@@ -202,9 +203,7 @@ class AppSidebar(QFrame):
 
     ITEMS = [
         ("home", "Home", "home"),
-        ("studios", "Studios", "studios"),
         ("notifications", "Notifications", "bell"),
-        ("history", "History", "history"),
         ("settings", "Settings", "settings"),
     ]
 
@@ -278,5 +277,7 @@ class AppSidebar(QFrame):
 
     def set_active(self, item_id: str):
         """Highlight an item without emitting item_selected."""
+        # History lives in Settings now.
+        item_id = {"history": "settings", "studios": "home"}.get(item_id, item_id)
         for iid, item in self._items.items():
             item.set_active(iid == item_id)

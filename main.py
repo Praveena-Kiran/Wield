@@ -168,6 +168,73 @@ class MainWindow(QMainWindow):
             False
         )
 
+        # =====================================================
+        # GESTURE SYSTEM
+        # =====================================================
+
+        self.gesture_thread = None
+
+        self.gesture_worker = None
+
+        # Which studio page started the gesture worker ("custom",
+        # "presentation", ...) and its name, for status messages.
+        self.gesture_context = None
+
+        self.gesture_studio_name = ""
+
+        self._last_event_run = {}
+
+        # Stopped camera threads that are still shutting down.
+        self._retiring_threads = []
+
+        # Sounds + always-on-top note for what gestures/voice just did.
+        self.feedback = Feedback(self)
+
+        # Spoken commands, running alongside the camera (see _start_voice).
+        self.voice_worker = None
+        self.voice_thread = None
+        self._voice_events = []
+        self._voice_note = ""
+
+        self.action_manager = (
+            ActionManager()
+        )
+
+        # Timers and helpers the pages use (kept when the theme changes).
+        self._bindings_restart = QTimer(self)
+        self._bindings_restart.setSingleShot(True)
+        self._bindings_restart.setInterval(700)
+        self._bindings_restart.timeout.connect(self._apply_presentation_bindings)
+        self.desktop_input = DesktopInput()
+        self._camera_claims = _CameraClaims()
+        self._camera_claims.changed.connect(self._on_camera_claims)
+        camera_claims.subscribe(self._camera_claims.changed.emit)
+        self._scroll_error_shown = False
+        self._browse_restart = QTimer(self)
+        self._browse_restart.setSingleShot(True)
+        self._browse_restart.setInterval(700)
+        self._browse_restart.timeout.connect(self._apply_browse_bindings)
+
+        # Everything you see: built again, in place, when the theme changes.
+        self._build_ui()
+
+        # =====================================================
+        # ROUTINES
+        # =====================================================
+
+        self._setup_routines()
+
+        # =====================================================
+        # SYSTEM TRAY
+        # =====================================================
+
+        self._setup_tray()
+
+        self.showNormal()
+
+    def _build_ui(self):
+        """The window's contents: title bar, sidebar and every page."""
+
         # Scoped to the window: an unscoped rule here would cascade to
         # every widget and hide the theme's backdrop.
         self.setStyleSheet(
@@ -326,37 +393,6 @@ class MainWindow(QMainWindow):
             1
         )
 
-        # =====================================================
-        # GESTURE SYSTEM
-        # =====================================================
-
-        self.gesture_thread = None
-
-        self.gesture_worker = None
-
-        # Which studio page started the gesture worker ("custom",
-        # "presentation", ...) and its name, for status messages.
-        self.gesture_context = None
-
-        self.gesture_studio_name = ""
-
-        self._last_event_run = {}
-
-        # Stopped camera threads that are still shutting down.
-        self._retiring_threads = []
-
-        # Sounds + always-on-top note for what gestures/voice just did.
-        self.feedback = Feedback(self)
-
-        # Spoken commands, running alongside the camera (see _start_voice).
-        self.voice_worker = None
-        self.voice_thread = None
-        self._voice_events = []
-        self._voice_note = ""
-
-        self.action_manager = (
-            ActionManager()
-        )
 
         # =====================================================
         # HOME → BUILT-IN STUDIO
@@ -425,10 +461,6 @@ class MainWindow(QMainWindow):
         # Gestures / phrases edited on the Presentation Studio page: keep
         # Gesture Studio in sync and reload the running camera and voice
         # (debounced, so several quick edits restart them once).
-        self._bindings_restart = QTimer(self)
-        self._bindings_restart.setSingleShot(True)
-        self._bindings_restart.setInterval(700)
-        self._bindings_restart.timeout.connect(self._apply_presentation_bindings)
 
         self.presentation_page.bindings_changed.connect(
             self._on_presentation_bindings_changed
@@ -452,21 +484,12 @@ class MainWindow(QMainWindow):
         self.browse_page.help_requested.connect(
             lambda: self.show_cheat_sheet("browse")
         )
-        self.desktop_input = DesktopInput()
 
         # Hands-free mode: always watching in the background (Settings).
-        self._camera_claims = _CameraClaims()
-        self._camera_claims.changed.connect(self._on_camera_claims)
-        camera_claims.subscribe(self._camera_claims.changed.emit)
         self.settings_page.hands_free_changed.connect(self.set_hands_free)
         self.settings_page.studios_restored.connect(self.home_page.refresh_studios)
         self.settings_page.tour_requested.connect(lambda: self.start_tour("full"))
         self.home_page.studio_removed.connect(self._on_studio_removed)
-        self._scroll_error_shown = False
-        self._browse_restart = QTimer(self)
-        self._browse_restart.setSingleShot(True)
-        self._browse_restart.setInterval(700)
-        self._browse_restart.timeout.connect(self._apply_browse_bindings)
 
         self.presentation_page.listening_requested.connect(
             self.set_presentation_listening
@@ -492,12 +515,16 @@ class MainWindow(QMainWindow):
             self.go_home
         )
 
-        self.settings_page.restart_requested.connect(
-            self.restart_app
+        self.settings_page.theme_chosen.connect(
+            self.apply_theme
         )
 
+        # History opens from Settings, so Back goes there.
         self.activity_page.back_requested.connect(
-            self.go_home
+            lambda: self._on_sidebar("settings")
+        )
+        self.settings_page.history_requested.connect(
+            lambda: self._on_sidebar("history")
         )
 
         self.notifications_page.back_requested.connect(
@@ -529,18 +556,6 @@ class MainWindow(QMainWindow):
         )
 
         # =====================================================
-        # ROUTINES
-        # =====================================================
-
-        self._setup_routines()
-
-        # =====================================================
-        # SYSTEM TRAY
-        # =====================================================
-
-        self._setup_tray()
-
-        # =====================================================
         # SIDEBAR NAVIGATION
         # =====================================================
 
@@ -556,8 +571,6 @@ class MainWindow(QMainWindow):
             body,
             1
         )
-
-        self.showNormal()
 
     # =============================================================
     # CENTER WINDOW
@@ -605,6 +618,7 @@ class MainWindow(QMainWindow):
 
         if item_id == "settings":
             self.stop_gesture_worker()
+            self.sidebar.set_active("settings")
             self.stack.setCurrentWidget(self.settings_page)
 
         elif item_id == "history":
@@ -2298,8 +2312,8 @@ class MainWindow(QMainWindow):
         self.home_page.refresh_studios()
 
         if dialog.theme_changed:
-            # Themes apply at startup.
-            self.restart_app()
+            from frontend.styles import theme as current
+            self.apply_theme(SettingsManager().get_setting(current.SETTING_KEY) or current.THEME_NAME)
 
     def _on_name_changed(self):
         self.sidebar.refresh_user()
@@ -2405,6 +2419,77 @@ class MainWindow(QMainWindow):
         # Started in the tray after an update: the tour waits until now.
         QTimer.singleShot(500, self._maybe_welcome)
 
+    def apply_theme(self, name):
+        """
+        Switch theme right away: the window rebuilds itself with the new
+        colours (fading over from the old ones) and stays on the same page.
+        """
+
+        from frontend.styles import theme as current
+
+        if name not in current.THEMES:
+            return
+        SettingsManager().set_setting(current.SETTING_KEY, name)
+        if name == current.THEME_NAME:
+            return
+
+        on_settings = self.stack.currentWidget() is self.settings_page
+        snapshot = self.grab()
+
+        hands_free = self.gesture_context == "auto"
+        self.stop_gesture_worker()
+
+        _reload_frontend()
+        QApplication.instance().setStyleSheet(global_stylesheet())
+
+        # Things made with the old colours.
+        for attr in ("_wield_toast", "_cheat_sheet"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.deleteLater()
+                setattr(self, attr, None)
+
+        old = self.takeCentralWidget()
+        self._build_ui()
+        if old is not None:
+            old.deleteLater()
+
+        self.sidebar.refresh_user()
+        self._refresh_suggestion()
+        if on_settings:
+            self.stack.setCurrentWidget(self.settings_page)
+            self.sidebar.set_active("settings")
+        else:
+            self.go_home()
+
+        self._fade_from(snapshot)
+        self.settings_page.notify(f"{current.THEMES[name]['label']} theme on.")
+
+        if hands_free:
+            QTimer.singleShot(800, self._resume_hands_free)
+
+    def _fade_from(self, pixmap, ms=320):
+        """Show the old look on top and fade it away."""
+        from PySide6.QtCore import QPropertyAnimation
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        cover = QLabel(self)
+        cover.setPixmap(pixmap)
+        cover.setGeometry(self.rect())
+        cover.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        effect = QGraphicsOpacityEffect(cover)
+        cover.setGraphicsEffect(effect)
+        cover.show()
+        cover.raise_()
+
+        fade = QPropertyAnimation(effect, b"opacity", cover)
+        fade.setDuration(ms)
+        fade.setStartValue(1.0)
+        fade.setEndValue(0.0)
+        fade.finished.connect(cover.deleteLater)
+        fade.start()
+        self._theme_fade = fade
+
     def restart_app(self):
         """Start a fresh Wield (themes apply at startup), then quit."""
 
@@ -2422,6 +2507,42 @@ class MainWindow(QMainWindow):
         self._quitting = True
         self.close()
 
+
+
+def _reload_frontend():
+    """
+    Load the screens again so they pick up the theme just chosen. Every
+    screen builds its styles from frontend.styles.theme when it's made,
+    so: forget the loaded frontend modules, import them again (theme
+    first, reading the new choice), and point this file's names at the
+    new classes and colours.
+    """
+
+    import importlib
+
+    names = sorted(n for n in sys.modules if n == "frontend" or n.startswith("frontend."))
+    for name in names:
+        del sys.modules[name]
+    importlib.import_module("frontend.styles.theme")
+    for name in names:
+        try:
+            importlib.import_module(name)
+        except Exception as e:  # noqa: BLE001 - a lazily loaded extra
+            print(f"⚠ Theme: couldn't reload {name}: {e}")
+
+    theme = sys.modules["frontend.styles.theme"]
+    names_here = globals()
+    for key, value in list(names_here.items()):
+        module = getattr(value, "__module__", None)
+        if (
+            isinstance(module, str)
+            and module.startswith("frontend.")
+            and module in sys.modules
+            and hasattr(sys.modules[module], key)
+        ):
+            names_here[key] = getattr(sys.modules[module], key)
+        elif key.isupper() and isinstance(value, str) and hasattr(theme, key):
+            names_here[key] = getattr(theme, key)
 
 
 # =============================================================
