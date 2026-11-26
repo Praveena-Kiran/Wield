@@ -6,10 +6,9 @@ The hand mouse: move the pointer with your hand, pinch to click.
     # [("move", x, y), ("left_down",), ("left_up",), ("right_click",), ("exit",)]
     # x, y: 0..1 across the screen
 
-- The pointer follows a spot between your index knuckle and the point
-  between your thumb and index tips. Knuckles shake far less in the
-  camera than fingertips, and that spot barely moves when you pinch, so
-  clicking doesn't knock the pointer off the button.
+- The pointer follows the point between your thumb tip and index fingertip.
+  That point barely moves when you pinch them together, so clicking
+  doesn't knock the pointer off the button (a fingertip would).
 - A small box of the camera image covers the whole screen, so small hand
   movements reach every corner. It's centred on where your hand is when
   the hand mouse turns on (that spot is the middle of the screen), and
@@ -32,8 +31,6 @@ import math
 from backend.fog import OneEuroFilter, finger_states
 
 THUMB_TIP, INDEX_TIP, MIDDLE_TIP = 4, 8, 12
-INDEX_KNUCKLE = 5
-KNUCKLE_WEIGHT = 0.55     # how much the steady knuckle counts in the pointer spot
 WRIST, MIDDLE_KNUCKLE = 0, 9
 
 # Camera area (image coordinates, 0..1) that maps to the whole screen,
@@ -53,10 +50,6 @@ PINCH_ON = 0.28      # pinched: tips closer than this × hand size
 PINCH_OFF = 0.40     # released: further than this (hysteresis)
 FREEZE_SECONDS = 0.25
 MIN_MOVE = 0.0005    # of the screen: smaller moves aren't sent (the glide smooths the rest)
-# Soft dead zone (of the screen): moves smaller than this are mostly
-# tremor, so they count for little (by the square of their size); bigger
-# moves pass straight through.
-STEADY = 0.006
 EXIT_FIST_SECONDS = 1.0
 
 
@@ -75,18 +68,6 @@ def to_screen(x, y, region=REGION):
     sx = (x - x0) / (x1 - x0)
     sy = (y - y0) / (y1 - y0)
     return min(max(sx, 0.0), 1.0), min(max(sy, 0.0), 1.0)
-
-
-def steady_step(last, new, zone=STEADY):
-    """Tiny moves (tremor) count for little; bigger ones fully."""
-    if last is None:
-        return new
-    dx, dy = new[0] - last[0], new[1] - last[1]
-    distance = math.hypot(dx, dy)
-    if distance >= zone or distance == 0:
-        return new
-    keep = (distance / zone) ** 2
-    return last[0] + dx * keep, last[1] + dy * keep
 
 
 def centred_region(x, y, reach=DEFAULT_REACH):
@@ -119,8 +100,8 @@ class HandMouse:
         self.reach = reach
         # Steadier when you hold still (lower cutoff), still quick when you
         # sweep across the screen (beta).
-        self.fx = OneEuroFilter(min_cutoff=0.5, beta=3.0)
-        self.fy = OneEuroFilter(min_cutoff=0.5, beta=3.0)
+        self.fx = OneEuroFilter(min_cutoff=0.7, beta=3.0)
+        self.fy = OneEuroFilter(min_cutoff=0.7, beta=3.0)
         self.reset()
 
     def reset(self):
@@ -131,7 +112,6 @@ class HandMouse:
         self._pinch_since = None
         self._right_pinched = False
         self._last_sent = None
-        self._steady = None
         self._fist_since = None
 
     def _release(self):
@@ -139,10 +119,6 @@ class HandMouse:
         self.left_down = False
         self._pinch_since = None
         return ops
-
-    def _steadied(self, x, y):
-        self._steady = steady_step(self._steady, (x, y))
-        return self._steady
 
     def update(self, landmarks, now):
 
@@ -186,16 +162,13 @@ class HandMouse:
 
         # Pointer: between thumb and index tips, smoothed.
         (tx, ty), (ix, iy) = _xy(landmarks[THUMB_TIP]), _xy(landmarks[INDEX_TIP])
-        kx, ky = _xy(landmarks[INDEX_KNUCKLE])
-        w = KNUCKLE_WEIGHT
-        px = w * kx + (1 - w) * (tx + ix) / 2
-        py = w * ky + (1 - w) * (ty + iy) / 2
+        px, py = (tx + ix) / 2, (ty + iy) / 2
         if self.region is None:
             self.region = centred_region(px, py, self.reach)
         elif self.fixed_region is None:
             self.region = follow(self.region, px, py)
         sx, sy = to_screen(px, py, self.region)
-        sx, sy = self._steadied(self.fx(sx, now), self.fy(sy, now))
+        sx, sy = self.fx(sx, now), self.fy(sy, now)
 
         frozen = self._pinch_since is not None and now - self._pinch_since < FREEZE_SECONDS
         if not frozen and not self._right_pinched:

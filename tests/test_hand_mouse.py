@@ -49,24 +49,6 @@ class HandMouseTests(unittest.TestCase):
         x, y = to_screen(0.5, 0.4)
         self.assertAlmostEqual(x, 0.5)
 
-    def test_tremor_counts_for_little_but_real_moves_pass(self):
-        from backend.gestures.hand_mouse import STEADY, steady_step
-        tiny = steady_step((0.5, 0.5), (0.5 + STEADY / 4, 0.5))
-        self.assertLess(tiny[0] - 0.5, STEADY / 4 / 10)       # a tremor barely moves it
-        big = steady_step((0.5, 0.5), (0.6, 0.5))
-        self.assertEqual(big, (0.6, 0.5))                       # a real move passes
-        self.assertEqual(steady_step(None, (0.2, 0.3)), (0.2, 0.3))
-
-    def test_a_shaky_still_hand_keeps_the_pointer_steady(self):
-        import random
-        random.seed(4)
-        mouse = HandMouse()
-        shaky = [hand(0.5 + random.uniform(-0.004, 0.004), 0.4 + random.uniform(-0.004, 0.004))
-                 for _ in range(60)]
-        moves = [op for op in self.frames(mouse, shaky) if op[0] == "move"]
-        xs = [m[1] for m in moves[5:]]
-        self.assertLess(max(xs) - min(xs), 0.01)               # under 1% of the screen
-
     def test_starts_in_the_middle_wherever_your_hand_is(self):
         from backend.gestures.hand_mouse import centred_region
         for x, y in ((0.3, 0.6), (0.7, 0.3)):
