@@ -231,6 +231,20 @@
   .uses p { margin: 0; color: var(--ink-2); font-size: 15px; }
   .sheet-shot { border-radius: var(--r-lg); box-shadow: var(--shadow); }
 
+  /* "Windows protected your PC": the two clicks, drawn */
+  .ss-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .ss { background: #1F4E79; color: #fff; border-radius: 10px; padding: 16px 18px 14px; font-family: "Segoe UI", system-ui, sans-serif; position: relative; min-height: 150px; display: flex; flex-direction: column; }
+  .ss .t { font-size: 19px; font-weight: 300; margin: 0 0 8px; }
+  .ss .b { font-size: 12.5px; line-height: 1.4; margin: 0; opacity: .92; }
+  .ss .more { text-decoration: underline; font-size: 12.5px; margin-top: 6px; align-self: flex-start; }
+  .ss .info { font-size: 12.5px; line-height: 1.6; margin: 0 0 4px; opacity: .92; }
+  .ss .btns { margin-top: auto; display: flex; gap: 8px; justify-content: flex-end; padding-top: 12px; }
+  .ss .btn-w { border: 1px solid rgba(255,255,255,.8); padding: 5px 14px; font-size: 12.5px; }
+  .ss .btn-w.solid { background: #fff; color: #111; }
+  .ss .hl { outline: 3px solid #FFD666; outline-offset: 4px; border-radius: 4px; }
+  .ss .n { position: absolute; top: -10px; left: -10px; width: 28px; height: 28px; border-radius: 50%; background: #FFD666; color: #1E1B2E; font-weight: 800; display: grid; place-items: center; font-family: "Bricolage Grotesque", sans-serif; box-shadow: 0 4px 10px rgba(0,0,0,.3); }
+  .ss-cap { font-size: 14px; color: var(--on-night-2); margin: 8px 2px 0; }
+
   /* How it works: a single rounded strip */
   .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-xl); overflow: hidden; }
   .flow > div { padding: 32px 30px; position: relative; }
@@ -283,6 +297,7 @@
   a:focus-visible, summary:focus-visible, .btn:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; border-radius: 999px; }
 
   @media (max-width: 960px) {
+    .ss-steps { grid-template-columns: 1fr; }
     .story { grid-template-columns: 1fr; gap: 28px; padding: 32px 24px; }
     .uses { grid-template-columns: 1fr 1fr; }
     .bento { grid-template-columns: 1fr 1fr; }
@@ -567,7 +582,29 @@
         <li><span class="num">3</span><h3>Open</h3><p>Click the <strong>Wield</strong> icon on your desktop. A short tour shows you around.</p></li>
       </ol>
       <div class="note">
-        <strong>Seeing “Windows protected your PC”?</strong> Wield is new and isn't code-signed yet (certificates are costly for a student project). Click <strong>More info</strong>, then <strong>Run anyway</strong>. You can <a href="https://github.com/Praveena-Kiran/Wield">read the code on GitHub</a>, and every release is built and tested automatically there.
+        <strong>Seeing “Windows protected your PC”? That's expected.</strong> Windows shows it for apps from small makers that don't yet have a paid publisher certificate (they're costly for a student project). It's two clicks, just once:
+        <div class="ss-steps" role="img" aria-label="Step 1: on the blue Windows protected your PC screen, click More info. Step 2: click Run anyway.">
+          <div>
+            <div class="ss" aria-hidden="true">
+              <span class="n">1</span>
+              <p class="t">Windows protected your PC</p>
+              <p class="b">Microsoft Defender SmartScreen prevented an unrecognized app from starting…</p>
+              <span class="more hl">More info</span>
+              <div class="btns"><span class="btn-w">Don't run</span></div>
+            </div>
+            <p class="ss-cap">Click <strong>More info</strong>.</p>
+          </div>
+          <div>
+            <div class="ss" aria-hidden="true">
+              <span class="n">2</span>
+              <p class="t">Windows protected your PC</p>
+              <p class="info">App: Wield-Setup.exe<br>Publisher: Unknown publisher</p>
+              <div class="btns"><span class="btn-w solid hl">Run anyway</span><span class="btn-w">Don't run</span></div>
+            </div>
+            <p class="ss-cap">Then <strong>Run anyway</strong>. That's it.</p>
+          </div>
+        </div>
+        <p style="margin:14px 0 0">Wield is built and tested automatically from its <a href="https://github.com/Praveena-Kiran/Wield">public code on GitHub</a>, so you can see exactly what you're installing.</p>
       </div>
       <p class="fine" style="margin:0 0 16px">Rather not install? Get the <a href="https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-windows.zip">portable zip</a>, extract it and run <code>Wield.exe</code>. To remove Wield, use <strong>Settings → Apps → Installed apps</strong>.</p>
       <a class="btn btn-primary" href="https://github.com/Praveena-Kiran/Wield/releases/latest/download/Wield-Setup.exe">
