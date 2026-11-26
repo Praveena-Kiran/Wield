@@ -8,7 +8,7 @@ any app (frontend/components/cheat_sheet.py draws it).
 
 from backend.automation import browse_media
 from backend.automation.events import friendly_action
-from backend.voice.commands import is_voice_trigger, phrase_of
+from backend.voice.commands import example_phrase, is_voice_trigger, phrase_of
 
 PRESENTATION_SECTIONS = [
     ("Slides", ["presentation_start", "presentation_next",
@@ -28,7 +28,7 @@ HELP_EVENTS = [
 def label(trigger, wake=True):
     """How a trigger reads on the sheet: 👍 Thumbs Up, Swipe left, “Hey Wield, …”."""
     if is_voice_trigger(trigger):
-        phrase = phrase_of(trigger)
+        phrase = example_phrase(phrase_of(trigger))
         return f"“Hey Wield, {phrase}”" if wake else f"“{phrase}”"
     return trigger
 

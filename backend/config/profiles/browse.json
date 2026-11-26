@@ -36,6 +36,7 @@
         "🎤 next window": "browse_app_switch",
         "🎤 show desktop": "browse_desktop",
         "🎤 lock computer": "browse_lock",
+        "🎤 go to page number": "browse_go_to_page",
         "🎤 zoom in": "browse_zoom_in",
         "🎤 zoom out": "browse_zoom_out",
         "🎤 reset zoom": "browse_zoom_reset",

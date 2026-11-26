@@ -50,6 +50,8 @@ class VoiceWorker(QObject):
 
     # A voice trigger was spoken, e.g. "🎤 next slide".
     command = Signal(str)
+    # A phrase with a number: ("🎤 go to page number", 12).
+    command_number = Signal(str, int)
     # The wake phrase was heard on its own; waiting for a command.
     armed = Signal()
     # Every recognised utterance and what happened to it (for the log/UI).
@@ -132,7 +134,10 @@ class VoiceWorker(QObject):
         if event.kind == "command":
             print(f"[voice] heard “{event.text}” → {event.trigger}")
             self.heard.emit(event.text, "command")
-            self.command.emit(event.trigger)
+            if event.number is not None:
+                self.command_number.emit(event.trigger, event.number)
+            else:
+                self.command.emit(event.trigger)
         elif event.kind == "armed":
             print(f"[voice] heard “{event.text}” → listening for a command")
             self.heard.emit(event.text, "armed")

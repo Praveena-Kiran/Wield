@@ -1503,6 +1503,7 @@ class MainWindow(QMainWindow):
 
         # Bound methods so these run on the UI thread.
         worker.command.connect(self._on_voice_command)
+        worker.command_number.connect(self._on_voice_number)
         worker.armed.connect(self._on_voice_armed)
         worker.error.connect(self._on_voice_error)
 
@@ -1845,6 +1846,26 @@ class MainWindow(QMainWindow):
 
         for event in events:
             self._on_gesture_event(event)
+
+    @Slot(str, int)
+    def _on_voice_number(
+        self,
+        trigger,
+        number
+    ):
+        """A phrase with a number, like “go to page twelve”."""
+
+        if self.sender() is not self.voice_worker:
+            return
+
+        events = events_for_gesture(self._voice_events, trigger)
+
+        if not events:
+            print(f"[voice] {trigger} isn't assigned to anything here")
+            return
+
+        for event in events:
+            self._on_gesture_event(dict(event, number=number))
 
     @Slot()
     def _on_voice_armed(

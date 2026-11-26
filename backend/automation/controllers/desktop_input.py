@@ -12,6 +12,8 @@ Real keyboard / mouse-wheel input on Windows, and which app is in front.
     inp.move_to(0.5, 0.5)        # pointer to the middle of the main screen
     inp.button("left", True)     # left button down (False = up)
     inp.click("right")           # a right click ("left", "right"; double=True)
+    inp.type_digits(12)          # type "12", one key at a time
+    inp.clipboard_text()         # what's on the clipboard ("" if nothing)
 
 Everything goes through SendInput (ctypes), the same path as a real
 keyboard and mouse, so apps can't tell the difference. The Windows calls
@@ -249,6 +251,24 @@ class DesktopInput:
 
     def press(self, keys):
         self.api.send_keys(key_codes(keys))
+
+    def type_digits(self, number):
+        for digit in str(int(number)):
+            self.api.send_keys(key_codes([digit]))
+
+    def clipboard_text(self):
+        try:
+            from PySide6.QtGui import QGuiApplication
+            return QGuiApplication.clipboard().text() or ""
+        except Exception:  # noqa: BLE001 - no Qt / no clipboard
+            return ""
+
+    def set_clipboard_text(self, text):
+        try:
+            from PySide6.QtGui import QGuiApplication
+            QGuiApplication.clipboard().setText(text or "")
+        except Exception:  # noqa: BLE001
+            pass
 
     def zoom(self, steps):
         """Zoom in (+) or out (-) with Ctrl + mouse wheel: browsers, PDFs, Word."""

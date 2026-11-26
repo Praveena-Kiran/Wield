@@ -16,6 +16,9 @@ is fully testable:
                     "hey wield" ... "next slide"   -> runs (within window)
                     "next slide"                   -> ignored (no wake word)
     wake word off:  "next slide"                   -> runs
+
+A phrase can hold a number: the word "number" in it stands for one, e.g.
+"go to page number" matches "go to page twelve" (and the event gets 12).
 """
 
 import re
@@ -45,6 +48,86 @@ DEFAULT_WAKE_WINDOW = 5.0
 DEFAULT_MIN_CONFIDENCE = 0.55
 
 UNKNOWN = "[unk]"
+
+# "go to page number": the word "number" is a slot for 1..MAX_NUMBER.
+NUMBER_SLOT = "number"
+MAX_NUMBER = 300
+
+_ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+         "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+         "sixteen", "seventeen", "eighteen", "nineteen"]
+_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy",
+         "eighty", "ninety"]
+
+
+def number_words(n):
+    """12 -> "twelve", 123 -> "one hundred twenty three" (1-999)."""
+    if not 0 < n < 1000:
+        raise ValueError(n)
+    words = []
+    if n >= 100:
+        words += [_ONES[n // 100], "hundred"]
+        n %= 100
+    if n >= 20:
+        words.append(_TENS[n // 10])
+        n %= 10
+    if n:
+        words.append(_ONES[n])
+    return " ".join(words)
+
+
+def parse_number(text):
+    """"one hundred and twenty three" -> 123; None if it isn't a number."""
+    words = [w for w in (text or "").split() if w != "and"]
+    if not words:
+        return None
+    total, seen = 0, False
+    for word in words:
+        if word in _ONES[1:]:
+            total += _ONES.index(word)
+        elif word in _TENS[2:]:
+            total += 10 * _TENS.index(word)
+        elif word == "hundred" and 0 < total < 10:
+            total *= 100
+        else:
+            return None
+        seen = True
+    return total if seen and total > 0 else None
+
+
+def example_phrase(phrase, example=12):
+    """How to show a phrase to people: "go to page number" -> "go to page 12"."""
+    words = normalize_phrase(phrase).split()
+    return " ".join(str(example) if w == NUMBER_SLOT else w for w in words)
+
+
+def has_number(phrase):
+    return NUMBER_SLOT in normalize_phrase(phrase).split()
+
+
+def expand_numbers(phrase, maximum=MAX_NUMBER):
+    """Every way to say a phrase with a number slot ("go to page one" ...)."""
+    phrase = normalize_phrase(phrase)
+    if not has_number(phrase):
+        return [phrase]
+    return [phrase.replace(NUMBER_SLOT, number_words(n), 1) for n in range(1, maximum + 1)]
+
+
+def match_number(phrase, text):
+    """The number in text if it's phrase with the slot filled in, else None."""
+    words = normalize_phrase(phrase).split()
+    if NUMBER_SLOT not in words:
+        return None
+    i = words.index(NUMBER_SLOT)
+    before, after = " ".join(words[:i]), " ".join(words[i + 1:])
+    if before and not (text == before or text.startswith(before + " ")):
+        return None
+    middle = text[len(before):].strip()
+    if after:
+        if not (middle == after or middle.endswith(" " + after)):
+            return None
+        middle = middle[: len(middle) - len(after)].strip()
+    return parse_number(middle)
 
 
 def normalize_phrase(text):
@@ -87,7 +170,9 @@ def grammar(phrases, wake_word=True):
     The phrases the recogniser may return. Anything else comes back as
     [unk], so ordinary speech doesn't get forced into a command.
     """
-    phrases = sorted({normalize_phrase(p) for p in phrases if normalize_phrase(p)})
+    phrases = sorted({
+        said for p in phrases if normalize_phrase(p) for said in expand_numbers(p)
+    })
     allowed = set(phrases)
     if wake_word:
         for wake in WAKE_VARIANTS:
@@ -103,6 +188,7 @@ class VoiceEvent:
     trigger: Optional[str] = None
     text: str = ""
     reason: str = ""
+    number: Optional[int] = None        # "go to page twelve" -> 12
 
 
 class VoiceCommandMatcher:
@@ -155,8 +241,16 @@ class VoiceCommandMatcher:
             self._armed_until = self._clock() + self.wake_window
             return VoiceEvent("armed", text=text)
 
+        number = None
+        phrase = rest
         if rest not in self.phrases:
-            return VoiceEvent("ignored", text=text, reason="not a command")
+            for candidate in self.phrases:
+                number = match_number(candidate, rest)
+                if number is not None:
+                    phrase = candidate
+                    break
+            else:
+                return VoiceEvent("ignored", text=text, reason="not a command")
 
         if self.wake_word and not woke:
             if not self.armed:
@@ -165,7 +259,7 @@ class VoiceCommandMatcher:
                 )
 
         self._armed_until = 0.0
-        return VoiceEvent("command", trigger=VOICE_PREFIX + rest, text=text)
+        return VoiceEvent("command", trigger=VOICE_PREFIX + phrase, text=text, number=number)
 
 
 def average_confidence(result):

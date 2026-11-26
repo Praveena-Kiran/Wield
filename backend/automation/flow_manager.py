@@ -204,6 +204,10 @@ class FlowManager:
         elif action in ("Browser", "Media", "Wheel", "System", "Click"):
             self.browse_media.execute(value)
 
+        elif action == "Document":
+            # "Go to page twelve" in Word or a PDF.
+            self.browse_media.execute(value, number=event.get("number"))
+
         else:
             raise ValueError(f'Unknown action "{action}".')
 

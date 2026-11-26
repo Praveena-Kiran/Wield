@@ -25,7 +25,7 @@ Closing tabs by name or website ("close all YouTube tabs") would need a
 browser extension; it's a possible follow-up.
 """
 
-from backend.automation.controllers.desktop_input import WHEEL_DELTA, DesktopInput
+from backend.automation.controllers.desktop_input import WHEEL_DELTA, DesktopInput, is_browser
 
 
 PROFILE_NAME = "browse"
@@ -37,6 +37,7 @@ ACTIONS = [
     SCROLL,
     "browse_scroll_up",
     "browse_scroll_down",
+    "browse_go_to_page",
     "browse_zoom_in",
     "browse_zoom_out",
     "browse_zoom_reset",
@@ -73,7 +74,7 @@ ACTIONS = [
 SECTIONS = [
     ("scroll", "Scroll & zoom", "↕",
      "Any app: a web page, a PDF, Word. Works on what's under your mouse pointer.",
-     [SCROLL, "browse_scroll_up", "browse_scroll_down",
+     [SCROLL, "browse_scroll_up", "browse_scroll_down", "browse_go_to_page",
       "browse_zoom_in", "browse_zoom_out", "browse_zoom_reset"]),
     ("video", "Videos", "▶",
      "YouTube and most video sites, in the browser in front.",
@@ -103,6 +104,7 @@ PROFILE_ACTIONS = {
     SCROLL: ("Scroll (hold and move your hand)", "Scroll", "hold"),
     "browse_scroll_up": ("Scroll up", "Wheel", "scroll_up"),
     "browse_scroll_down": ("Scroll down", "Wheel", "scroll_down"),
+    "browse_go_to_page": ("Go to page (Word, PDFs)", "Document", "go_to_page"),
     "browse_zoom_in": ("Zoom in", "Wheel", "zoom_in"),
     "browse_zoom_out": ("Zoom out", "Wheel", "zoom_out"),
     "browse_zoom_reset": ("Reset zoom (browser)", "Browser", "zoom_reset"),
@@ -152,6 +154,8 @@ COMMANDS = {
     "zoom_in": ("zoom", 1),
     "zoom_out": ("zoom", -1),
     "zoom_reset": ("keys", ["ctrl", "0"]),
+    # "Go to page twelve": Word and PDF readers' own Go To box.
+    "go_to_page": ("page", None),
     # YouTube (and most web players): K play/pause, J/L 10 s, arrows 5 s.
     "video_play_pause": ("keys", ["k"]),
     "video_forward_10": ("keys", ["l"]),
@@ -226,12 +230,30 @@ class NotInBrowser(RuntimeError):
     """A browser-only action while another app is in front."""
 
 
+class NotInDocument(RuntimeError):
+    """"Go to page" while no Word document or PDF is in front."""
+
+
+# App in front -> the keys that open its "go to page" box. The box takes
+# the page number, Enter goes there; Word's stays open, so Esc closes it.
+GO_TO_PAGE = {
+    "winword.exe": (["ctrl", "g"], True),
+    "acrobat.exe": (["ctrl", "shift", "n"], False),
+    "acrord32.exe": (["ctrl", "shift", "n"], False),
+    "sumatrapdf.exe": (["ctrl", "g"], False),
+}
+
+DIALOG_WAIT = 0.35      # seconds for a dialog to open / the address bar to copy
+
+
 class BrowseMediaController:
     """Runs the studio's one-off actions (video, media keys, tabs)."""
 
-    def __init__(self, desktop_input=None, speed=None):
+    def __init__(self, desktop_input=None, speed=None, sleep=None):
+        import time
         self.input = desktop_input or DesktopInput()
         self.speed = speed          # None: read from Settings each time
+        self.sleep = sleep or time.sleep
 
     def wheel_notches(self):
         """How far one "scroll up / down" goes, from the studio's speed."""
@@ -244,13 +266,17 @@ class BrowseMediaController:
                 speed = "medium"
         return WHEEL_NOTCHES.get(speed, WHEEL_NOTCHES["medium"])
 
-    def execute(self, command):
+    def execute(self, command, number=None):
 
         spec = COMMANDS.get(command)
         if spec is None:
             raise ValueError(f'Unknown command "{command}".')
 
         kind, what = spec
+
+        if kind == "page":
+            self.go_to_page(number)
+            return
 
         if kind == "wheel":
             self.input.scroll(what * self.wheel_notches() * WHEEL_DELTA)
@@ -292,11 +318,62 @@ class BrowseMediaController:
         self.input.press(what)
 
 
+    def go_to_page(self, number):
+        """Jump to a page in Word, Adobe Reader / Acrobat, SumatraPDF or a
+        PDF open in the browser."""
+
+        try:
+            number = int(number)
+        except (TypeError, ValueError):
+            number = 0
+        if number < 1:
+            raise ValueError("Say the page number, like “go to page twelve”.")
+
+        app = self.input.foreground_process()
+        if app in GO_TO_PAGE:
+            keys, close_after = GO_TO_PAGE[app]
+            self.input.press(keys)
+            self.sleep(DIALOG_WAIT)
+            self.input.press(["ctrl", "a"])          # replace what's in the box
+            self.input.type_digits(number)
+            self.input.press(["enter"])
+            if close_after:
+                self.sleep(DIALOG_WAIT)
+                self.input.press(["esc"])
+            return
+
+        if is_browser(app):
+            self._browser_pdf_page(number)
+            return
+
+        raise NotInDocument("Open a Word document or a PDF first, then say the page.")
+
+    def _browser_pdf_page(self, number):
+        """A PDF in Chrome / Edge / Firefox: its address + #page=N."""
+
+        saved = self.input.clipboard_text()
+        try:
+            self.input.press(["ctrl", "l"])
+            self.input.press(["ctrl", "c"])
+            self.sleep(DIALOG_WAIT)
+            address = self.input.clipboard_text().strip()
+            base = address.split("#", 1)[0]
+            if not base.split("?", 1)[0].lower().endswith(".pdf"):
+                self.input.press(["esc"])
+                raise NotInDocument("This tab isn't a PDF. Open a PDF or a Word document first.")
+            self.input.set_clipboard_text(f"{base}#page={number}")
+            self.input.press(["ctrl", "v"])
+            self.input.press(["enter"])
+            self.sleep(DIALOG_WAIT)
+        finally:
+            self.input.set_clipboard_text(saved)
+
+
 def _short_trigger(trigger):
     """👍 Thumbs Up -> 👍; Swipe up stays; a phrase -> “phrase”."""
-    from backend.voice.commands import is_voice_trigger, phrase_of
+    from backend.voice.commands import example_phrase, is_voice_trigger, phrase_of
     if is_voice_trigger(trigger):
-        return f"“{phrase_of(trigger)}”"
+        return f"“{example_phrase(phrase_of(trigger))}”"
     first = trigger.split(" ", 1)[0]
     return first if first and not first[0].isalnum() else trigger
 
