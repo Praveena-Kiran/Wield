@@ -126,24 +126,25 @@ class VoiceWorker(QObject):
                 pass
 
     def _handle(self, result):
+        # Privacy: nothing you say is written to the log, not even
+        # Wield's own phrases (only that a command was recognised).
         text = (result or {}).get("text", "")
         event = self.matcher.process(text, average_confidence(result or {}))
         if event is None:
             return
 
         if event.kind == "command":
-            print(f"[voice] heard “{event.text}” → {event.trigger}")
+            print("[voice] a command was recognised")
             self.heard.emit(event.text, "command")
             if event.number is not None:
                 self.command_number.emit(event.trigger, event.number)
             else:
                 self.command.emit(event.trigger)
         elif event.kind == "armed":
-            print(f"[voice] heard “{event.text}” → listening for a command")
+            print("[voice] wake phrase: listening for a command")
             self.heard.emit(event.text, "armed")
             self.armed.emit()
         else:
-            print(f"[voice] heard “{event.text}” → ignored ({event.reason})")
             self.heard.emit(event.text, event.reason)
 
     @Slot()

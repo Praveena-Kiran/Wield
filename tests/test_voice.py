@@ -241,6 +241,20 @@ class VoiceWorkerTests(unittest.TestCase):
         self.assertTrue(out["stream"].closed)
         self.assertIn(("next slide", 'say "hey wield" first'), out["heard"])
 
+    def test_nothing_you_say_reaches_the_log(self):
+        import contextlib
+        import io
+        log = io.StringIO()
+        with contextlib.redirect_stdout(log):
+            out = self.run_worker([
+                {"text": "hey wield next slide", "result": [{"conf": 0.9}] * 4},
+                {"text": "next slide"},
+                {"text": "hey wield"},
+            ])
+        self.assertEqual(out["commands"], ["🎤 next slide"])
+        self.assertNotIn("next slide", log.getvalue())
+        self.assertNotIn("hey wield", log.getvalue().lower())
+
     def test_microphone_failure_is_reported(self):
         from backend.voice.voice_worker import VoiceWorker
 

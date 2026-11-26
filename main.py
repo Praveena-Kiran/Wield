@@ -1236,8 +1236,10 @@ class MainWindow(QMainWindow):
 
         self._last_event_run[name] = now
 
+        # Voice: the log says a spoken command ran, never the words.
+        shown = "🎤 (spoken)" if is_voice_trigger(gesture) else gesture
         print(
-            f"🎯 {gesture} → {name} "
+            f"🎯 {shown} → {name} "
             f"({self.gesture_studio_name})"
         )
 
@@ -1598,7 +1600,7 @@ class MainWindow(QMainWindow):
         print(f"🖐 Hands-free mode: {text}")
         worker = self.gesture_worker
         if worker is not None and worker.armed:
-            self.feedback.info(f"🖐 {text}")
+            self.feedback.info(text)
 
     # =============================================================
     # BROWSE & MEDIA STUDIO
@@ -1647,7 +1649,7 @@ class MainWindow(QMainWindow):
                     self.feedback.failed("Scroll", str(e))
                 return
 
-        label = {"up": "Scrolling up ↑", "down": "Scrolling down ↓"}.get(direction)
+        label = {"up": "Scrolling up", "down": "Scrolling down"}.get(direction)
         if amount == 0:
             self._gesture_feedback(label or "Holding: move up or down to scroll")
             if label:
@@ -1668,7 +1670,7 @@ class MainWindow(QMainWindow):
                 return
             return
 
-        label = {"up": "Volume up 🔊", "down": "Volume down 🔉"}.get(direction)
+        label = {"up": "Turning it up", "down": "Turning it down"}.get(direction)
         self._gesture_feedback(label or "Holding: move up or down to change the volume")
         if label:
             self.feedback.info(label)
@@ -1746,13 +1748,13 @@ class MainWindow(QMainWindow):
     @Slot(bool)
     def _on_mouse_mode(self, on):
         if on:
-            text = "🖱 Hand mouse: pinch to click · ✊ hold to stop"
+            text = "Hand mouse on · pinch to click, hold a fist to stop"
             self._gesture_feedback(text)
             self.feedback.info(text, sticky=True)
             self.feedback.sounds.play("armed")
         else:
             self._gesture_feedback("Hand mouse off")
-            self.feedback.info("🖱 Hand mouse off")
+            self.feedback.info("Hand mouse off")
 
     @Slot(str, float)
     def _on_hold_progress(self, name, progress):
@@ -1769,12 +1771,9 @@ class MainWindow(QMainWindow):
         if progress >= 1:
             return      # the action runs now and reports itself
 
-        steps = 10
-        filled = int(progress * steps)
-        bar = "▰" * filled + "▱" * (steps - filled)
-        text = f"Keep holding: {name}  {bar}"
-        self._gesture_feedback(text)
-        self.feedback.info(text, sticky=True)
+        text = f"Keep holding to {name.lower()}"
+        self._gesture_feedback(f"{text}… {int(progress * 100)}%")
+        self.feedback.info(text, sticky=True, progress=progress)
 
     def _on_presentation_bindings_changed(
         self
@@ -1855,7 +1854,7 @@ class MainWindow(QMainWindow):
         events = events_for_gesture(self._voice_events, trigger)
 
         if not events:
-            print(f"[voice] {trigger} isn't assigned to anything here")
+            print("[voice] that command isn't used in this studio")
             return
 
         for event in events:
@@ -1875,7 +1874,7 @@ class MainWindow(QMainWindow):
         events = events_for_gesture(self._voice_events, trigger)
 
         if not events:
-            print(f"[voice] {trigger} isn't assigned to anything here")
+            print("[voice] that command isn't used in this studio")
             return
 
         for event in events:
@@ -2396,11 +2395,28 @@ class MainWindow(QMainWindow):
         help_action.triggered.connect(lambda: self.show_cheat_sheet())
         menu.addAction(help_action)
 
+        # What's on right now, and a way to stop it (see _update_tray_status).
+        menu.addSeparator()
+        self.tray_status = QAction("", self)
+        self.tray_status.setEnabled(False)
+        menu.addAction(self.tray_status)
+        self.tray_stop = QAction("Stop watching and listening", self)
+        self.tray_stop.triggered.connect(self.stop_watching_and_listening)
+        menu.addAction(self.tray_stop)
+        menu.addSeparator()
+
         quit_action = QAction("Quit", self)
         quit_action.triggered.connect(self.quit_app)
         menu.addAction(quit_action)
 
         self.tray.setContextMenu(menu)
+
+        self._tray_state = None
+        self._tray_timer = QTimer(self)
+        self._tray_timer.setInterval(700)
+        self._tray_timer.timeout.connect(self._update_tray_status)
+        self._tray_timer.start()
+        self._update_tray_status()
 
         self.tray.activated.connect(
             lambda reason: self.show_from_tray()
@@ -2409,6 +2425,62 @@ class MainWindow(QMainWindow):
         )
 
         self.tray.show()
+
+    def devices_in_use(self):
+        """(camera on, microphone on) right now."""
+        return self.gesture_worker is not None, self.voice_worker is not None
+
+    def _update_tray_status(self):
+        """
+        The tray icon says plainly whether Wield is watching or listening:
+        a small green dot on the icon, the words when you hover over it,
+        and the same at the top of its menu.
+        """
+
+        if self.tray is None:
+            return
+        state = self.devices_in_use()
+        if state == self._tray_state:
+            return
+        self._tray_state = state
+        camera, mic = state
+
+        if camera and mic:
+            words = "Camera and microphone are on"
+        elif camera:
+            words = "Camera is on"
+        elif mic:
+            words = "Microphone is on"
+        else:
+            words = "Camera and microphone are off"
+
+        self.tray.setToolTip(f"{APP_NAME}: {words.lower()}")
+        self.tray_status.setText(words)
+        self.tray_stop.setVisible(camera or mic)
+        self.tray.setIcon(_app_icon_with_dot() if (camera or mic) else _app_icon())
+
+    def stop_watching_and_listening(self):
+        """Tray menu: turn the camera and microphone off now (and keep
+        them off: background mode is switched off too)."""
+
+        if gesture_settings.load()["hands_free"]:
+            gesture_settings.save("hands_free", False)
+            try:
+                self.settings_page.hands_free.setChecked(False)
+            except Exception:  # noqa: BLE001
+                pass
+            self.home_page.set_hands_free("")
+        self.stop_gesture_worker()
+        self._stop_voice()
+        self._update_tray_status()
+        if self.tray is not None:
+            self.tray.showMessage(
+                APP_NAME,
+                "Camera and microphone are off. Turn background mode back on "
+                "in Settings whenever you like.",
+                QSystemTrayIcon.MessageIcon.Information,
+                4000,
+            )
 
     def show_from_tray(self):
 
@@ -2507,6 +2579,22 @@ class MainWindow(QMainWindow):
         self._quitting = True
         self.close()
 
+
+
+def _app_icon_with_dot():
+    """The app icon with a small green dot: Wield is watching or listening."""
+
+    base = _app_icon().pixmap(64, 64)
+    if base.isNull():
+        base = QPixmap(64, 64)
+        base.fill(QColor(0, 0, 0, 0))
+    painter = QPainter(base)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor(20, 20, 20), 3))
+    painter.setBrush(QColor("#4ADE80"))
+    painter.drawEllipse(38, 38, 24, 24)
+    painter.end()
+    return QIcon(base)
 
 
 def _reload_frontend():
