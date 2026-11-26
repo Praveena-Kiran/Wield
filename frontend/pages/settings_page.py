@@ -528,6 +528,19 @@ class SettingsPage(StudioPage):
         )
         self._row("Go back to sleep after", None, self.hands_free_timeout)
 
+        self.mouse_reach = self._choices(
+            "mouse_reach",
+            [("short", "Short"), ("medium", "Medium"), ("long", "Long")],
+            "Hand mouse reach",
+        )
+        self._row(
+            "Hand mouse: how far you move your hand",
+            "Short: tiny movements cover the whole screen. Long: bigger "
+            "movements, a little more precise. Wherever your hand is when the "
+            "hand mouse turns on is the middle of the screen.",
+            self.mouse_reach,
+        )
+
     def _on_hands_free(self, checked):
         self._save("hands_free", bool(checked))
         self.hands_free_changed.emit(bool(checked))

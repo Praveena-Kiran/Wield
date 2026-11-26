@@ -437,7 +437,11 @@ class GestureWorker(QObject):
         if not on and self.hand_mouse.left_down:
             self.mouse_ops.emit([("left_up",)])
         self.mouse_mode = on
-        self.hand_mouse.reset()
+        try:
+            self.hand_mouse.reach = gesture_settings.load()["mouse_reach"]
+        except Exception:  # noqa: BLE001
+            pass
+        self.hand_mouse.reset()       # centres on your hand's next position
         self.scroller.reset()
         self.stabilizer.update(None, 0.0)
         self.mouse_mode_changed.emit(on)

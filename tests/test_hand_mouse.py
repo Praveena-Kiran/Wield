@@ -49,6 +49,44 @@ class HandMouseTests(unittest.TestCase):
         x, y = to_screen(0.5, 0.4)
         self.assertAlmostEqual(x, 0.5)
 
+    def test_starts_in_the_middle_wherever_your_hand_is(self):
+        from backend.gestures.hand_mouse import centred_region
+        for x, y in ((0.3, 0.6), (0.7, 0.3)):
+            mouse = HandMouse()
+            ops = mouse.update(hand(x, y), 0.0)
+            move = [op for op in ops if op[0] == "move"][0]
+            self.assertAlmostEqual(move[1], 0.5, delta=0.05)
+            self.assertAlmostEqual(move[2], 0.5, delta=0.05)
+        # Near the camera's edge the area stays inside the picture.
+        x0, y0, x1, y1 = centred_region(0.02, 0.98)
+        self.assertGreaterEqual(x0, 0.0)
+        self.assertLessEqual(y1, 1.0)
+
+    def test_short_reach_needs_less_movement(self):
+        from backend.gestures.hand_mouse import REACH
+        self.assertLess(REACH["short"][0], REACH["medium"][0])
+        self.assertLess(REACH["medium"][0], REACH["long"][0])
+        def across(reach):
+            mouse = HandMouse(reach=reach)
+            mouse.update(hand(0.5, 0.5), 0.0)
+            ops = self.frames(mouse, [hand(0.5 + 0.1, 0.5)] * 30, start=0.1)
+            return [op for op in ops if op[0] == "move"][-1][1]
+        self.assertGreater(across("short"), across("long"))
+
+    def test_past_the_edge_the_area_follows(self):
+        from backend.gestures.hand_mouse import follow
+        region = (0.3, 0.3, 0.6, 0.6)
+        self.assertEqual(follow(region, 0.4, 0.4), region)
+        moved = follow(region, 0.7, 0.4)                  # 0.1 past the right edge
+        self.assertAlmostEqual(moved[2], 0.7)
+        self.assertAlmostEqual(moved[2] - moved[0], 0.3)  # same size
+        # ...so coming back left moves the pointer straight away.
+        mouse = HandMouse(reach="short")
+        mouse.update(hand(0.5, 0.5), 0.0)
+        self.frames(mouse, [hand(0.9, 0.5)] * 20, start=0.1)
+        ops = self.frames(mouse, [hand(0.85, 0.5)] * 20, start=1.0)
+        self.assertLess([op for op in ops if op[0] == "move"][-1][1], 0.95)
+
     def test_moving_the_hand_moves_the_pointer(self):
         ops = self.frames(HandMouse(), [hand(0.3 + i * 0.01, 0.4) for i in range(30)])
         moves = [op for op in ops if op[0] == "move"]

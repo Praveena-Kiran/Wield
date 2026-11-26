@@ -9,8 +9,12 @@ The hand mouse: move the pointer with your hand, pinch to click.
 - The pointer follows the point between your thumb tip and index fingertip.
   That point barely moves when you pinch them together, so clicking
   doesn't knock the pointer off the button (a fingertip would).
-- A box in the middle of the camera image covers the whole screen, so
-  small hand movements reach every corner.
+- A small box of the camera image covers the whole screen, so small hand
+  movements reach every corner. It's centred on where your hand is when
+  the hand mouse turns on (that spot is the middle of the screen), and
+  if your hand drifts past its edge the box follows, like lifting and
+  putting down a mouse. Its size is the "reach" (Settings: short,
+  medium, long).
 - The position goes through a One-Euro filter (as the fog writing and
   scrolling do): steady when you aim, quick when you sweep across. On
   screen, the pointer glides between camera frames (pointer_glide.py).
@@ -29,8 +33,18 @@ from backend.fog import OneEuroFilter, finger_states
 THUMB_TIP, INDEX_TIP, MIDDLE_TIP = 4, 8, 12
 WRIST, MIDDLE_KNUCKLE = 0, 9
 
-# Camera area (image coordinates, 0..1) that maps to the whole screen.
+# Camera area (image coordinates, 0..1) that maps to the whole screen,
+# for to_screen() and a fixed region.
 REGION = (0.18, 0.12, 0.82, 0.68)
+
+# Reach: the width and height of the camera area that covers the screen.
+# Smaller = less hand movement (a little less precise).
+REACH = {
+    "short": (0.26, 0.24),
+    "medium": (0.36, 0.32),
+    "long": (0.60, 0.52),
+}
+DEFAULT_REACH = "medium"
 
 PINCH_ON = 0.28      # pinched: tips closer than this × hand size
 PINCH_OFF = 0.40     # released: further than this (hysteresis)
@@ -56,10 +70,34 @@ def to_screen(x, y, region=REGION):
     return min(max(sx, 0.0), 1.0), min(max(sy, 0.0), 1.0)
 
 
+def centred_region(x, y, reach=DEFAULT_REACH):
+    """The screen's camera area, centred on (x, y) and kept inside the image."""
+    w, h = REACH.get(reach, REACH[DEFAULT_REACH])
+    x0 = min(max(x - w / 2, 0.0), 1.0 - w)
+    y0 = min(max(y - h / 2, 0.0), 1.0 - h)
+    return (x0, y0, x0 + w, y0 + h)
+
+
+def follow(region, x, y):
+    """Slide the area so (x, y) is inside it: past an edge, the area comes
+    along (the pointer stays at the screen's edge), so you never have to
+    reach further than the area is wide."""
+    x0, y0, x1, y1 = region
+    dx = min(x - x0, 0.0) + max(x - x1, 0.0)
+    dy = min(y - y0, 0.0) + max(y - y1, 0.0)
+    if not dx and not dy:
+        return region
+    w, h = x1 - x0, y1 - y0
+    x0 = min(max(x0 + dx, 0.0), 1.0 - w)
+    y0 = min(max(y0 + dy, 0.0), 1.0 - h)
+    return (x0, y0, x0 + w, y0 + h)
+
+
 class HandMouse:
 
-    def __init__(self, region=REGION):
-        self.region = region
+    def __init__(self, region=None, reach=DEFAULT_REACH):
+        self.fixed_region = region          # None: centred on your hand
+        self.reach = reach
         # Steadier when you hold still (lower cutoff), still quick when you
         # sweep across the screen (beta).
         self.fx = OneEuroFilter(min_cutoff=0.7, beta=3.0)
@@ -67,6 +105,7 @@ class HandMouse:
         self.reset()
 
     def reset(self):
+        self.region = self.fixed_region
         self.fx.reset()
         self.fy.reset()
         self.left_down = False
@@ -123,7 +162,12 @@ class HandMouse:
 
         # Pointer: between thumb and index tips, smoothed.
         (tx, ty), (ix, iy) = _xy(landmarks[THUMB_TIP]), _xy(landmarks[INDEX_TIP])
-        sx, sy = to_screen((tx + ix) / 2, (ty + iy) / 2, self.region)
+        px, py = (tx + ix) / 2, (ty + iy) / 2
+        if self.region is None:
+            self.region = centred_region(px, py, self.reach)
+        elif self.fixed_region is None:
+            self.region = follow(self.region, px, py)
+        sx, sy = to_screen(px, py, self.region)
         sx, sy = self.fx(sx, now), self.fy(sy, now)
 
         frozen = self._pinch_since is not None and now - self._pinch_since < FREEZE_SECONDS

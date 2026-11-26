@@ -23,6 +23,8 @@ Stored in the user's settings.json (via SettingsManager):
                         activation gesture wakes Wield, and the gestures
                         follow the app in front
     hands_free_timeout  seconds without gestures before it sleeps again
+    mouse_reach         "short" | "medium" | "long"  how far you move your
+                        hand to cover the screen with the hand mouse
 
 thresholds() turns these into the numbers the matchers use.
 """
@@ -46,11 +48,14 @@ DEFAULTS = {
     "browse_scroll_by_height": True,
     "hands_free": False,
     "hands_free_timeout": 30,
+    "mouse_reach": "medium",
 }
 
 HANDS_FREE_TIMEOUTS = [15, 30, 60, 120]
 
 SCROLL_SPEEDS = ("slow", "medium", "fast")
+
+MOUSE_REACHES = ("short", "medium", "long")
 
 FOG_COLOURS = ("white", "black")
 FOG_STROKES = ("thin", "medium", "thick")
@@ -87,6 +92,8 @@ def load():
     if values["browse_scroll_speed"] not in SCROLL_SPEEDS:
         values["browse_scroll_speed"] = DEFAULTS["browse_scroll_speed"]
     values["browse_scroll_by_height"] = bool(values["browse_scroll_by_height"])
+    if values["mouse_reach"] not in MOUSE_REACHES:
+        values["mouse_reach"] = DEFAULTS["mouse_reach"]
     values["hands_free"] = bool(values["hands_free"])
     try:
         values["hands_free_timeout"] = max(5, int(values["hands_free_timeout"]))
