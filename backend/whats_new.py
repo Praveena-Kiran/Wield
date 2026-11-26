@@ -12,6 +12,12 @@ from backend.settings.settings_manager import SettingsManager
 SEEN_KEY = "tour_seen_version"
 
 NOTES = {
+    "1.5.0": [
+        "<b>A smooth hand mouse</b>: point to move, one pinch to click, 👍 / 👎 to scroll.",
+        "<b>Less arm movement</b>: wherever your hand starts is the middle of the screen (Settings: how far you move your hand).",
+        "<b>Studios keep running</b> when you go Home or to Settings. A green dot shows which one is on.",
+        "<b>New versions pop up as a notification</b>, and “Tell us about a problem” writes an email for you.",
+    ],
     "1.4.0": [
         "<b>Six hand signs</b> that mean the same thing in every app. See them on Home.",
         "<b>Point to scroll</b>: ☝️ point up or 👇 down and hold.",
