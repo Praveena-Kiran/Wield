@@ -317,7 +317,9 @@ class GestureWorker(QObject):
         while not self._stop_requested:
 
             # Slow down while no hand is in view (saves CPU).
-            pacer.wait(self.recognizer.last_image_landmarks is not None)
+            # (Not with the hand mouse: every frame the camera gives counts.)
+            if not self.mouse_mode:
+                pacer.wait(self.recognizer.last_image_landmarks is not None)
 
             success, frame = camera.read()
 

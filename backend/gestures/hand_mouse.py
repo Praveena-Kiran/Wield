@@ -12,7 +12,8 @@ The hand mouse: move the pointer with your hand, pinch to click.
 - A box in the middle of the camera image covers the whole screen, so
   small hand movements reach every corner.
 - The position goes through a One-Euro filter (as the fog writing and
-  scrolling do): steady when you aim, quick when you sweep across.
+  scrolling do): steady when you aim, quick when you sweep across. On
+  screen, the pointer glides between camera frames (pointer_glide.py).
 - Pinch thumb + index: left button down; let go: up. A quick pinch is a
   click, two are a double-click, pinch-and-move drags. For the first
   moment of a pinch the pointer stays put, so a click lands where you aimed.
@@ -34,7 +35,7 @@ REGION = (0.18, 0.12, 0.82, 0.68)
 PINCH_ON = 0.28      # pinched: tips closer than this × hand size
 PINCH_OFF = 0.40     # released: further than this (hysteresis)
 FREEZE_SECONDS = 0.25
-MIN_MOVE = 0.0015    # of the screen: smaller moves aren't sent
+MIN_MOVE = 0.0005    # of the screen: smaller moves aren't sent (the glide smooths the rest)
 EXIT_FIST_SECONDS = 1.0
 
 
@@ -59,8 +60,10 @@ class HandMouse:
 
     def __init__(self, region=REGION):
         self.region = region
-        self.fx = OneEuroFilter(min_cutoff=1.0, beta=3.0)
-        self.fy = OneEuroFilter(min_cutoff=1.0, beta=3.0)
+        # Steadier when you hold still (lower cutoff), still quick when you
+        # sweep across the screen (beta).
+        self.fx = OneEuroFilter(min_cutoff=0.7, beta=3.0)
+        self.fy = OneEuroFilter(min_cutoff=0.7, beta=3.0)
         self.reset()
 
     def reset(self):

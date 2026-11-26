@@ -1724,13 +1724,42 @@ class MainWindow(QMainWindow):
         self._cheat_sheet.toggle(f"What you can do · {title}", sections, "   ·   ".join(notes))
 
     @Slot(list)
+    def _pointer_glide(self):
+        """The glide that smooths the hand mouse (backend/gestures/pointer_glide.py),
+        and its timer: about 120 small moves a second between camera frames."""
+        if getattr(self, "_glide", None) is None:
+            from backend.gestures.pointer_glide import PointerGlide
+            self._glide = PointerGlide()
+            self._glide_timer = QTimer(self)
+            self._glide_timer.setTimerType(Qt.TimerType.PreciseTimer)
+            self._glide_timer.setInterval(8)
+            self._glide_timer.timeout.connect(self._glide_tick)
+        return self._glide
+
+    def _glide_tick(self):
+        position = self._glide.step(time.monotonic())
+        if position is None:
+            return
+        try:
+            self.desktop_input.move_to(*position)
+        except (InputUnavailable, OSError):
+            self._glide_timer.stop()
+
     def _on_mouse_ops(self, ops):
         """The hand mouse: move the pointer and press buttons."""
+        glide = self._pointer_glide()
         try:
             for op in ops:
                 if op[0] == "move":
-                    self.desktop_input.move_to(op[1], op[2])
-                elif op[0] == "left_down":
+                    glide.aim(op[1], op[2])
+                    if not self._glide_timer.isActive():
+                        self._glide_timer.start()
+                    continue
+                # Buttons press where you aimed, not where the glide has got to.
+                position = glide.settle()
+                if position is not None and op[0] in ("left_down", "right_click"):
+                    self.desktop_input.move_to(*position)
+                if op[0] == "left_down":
                     self.desktop_input.button("left", True)
                 elif op[0] == "left_up":
                     self.desktop_input.button("left", False)
@@ -1747,6 +1776,10 @@ class MainWindow(QMainWindow):
 
     @Slot(bool)
     def _on_mouse_mode(self, on):
+        glide = self._pointer_glide()
+        glide.reset()
+        if not on:
+            self._glide_timer.stop()
         if on:
             text = "Hand mouse on · pinch to click, hold a fist to stop"
             self._gesture_feedback(text)
